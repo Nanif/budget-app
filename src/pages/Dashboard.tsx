@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Fund, Income, Expense, TitheGiven, Debt, Task, AssetSnapshot, Category, BudgetYear, FundBudget } from '../types';
+import { Fund, Income, Expense, TitheGiven, Debt, Task, Category, BudgetYear, FundBudget, AssetSnapshot, SnapshotValue } from '../types';
 import TopActions from '../components/Dashboard/TopActions';
 
 import BudgetChart from '../components/Dashboard/BudgetChart';
@@ -369,11 +369,11 @@ const Dashboard: React.FC = () => {
     }
   }, []);
 
-  const handleAddAssetSnapshot = useCallback(async (assets: Record<string, number>, liabilities: Record<string, number>, note: string) => {
+  const handleAddAssetSnapshot = useCallback(async (assets: Record<string, SnapshotValue>, liabilities: Record<string, SnapshotValue>, note: string) => {
     try {
       const snapshotData = {
-        assets,
-        liabilities,
+        assets: Object.fromEntries(Object.entries(assets).map(([key, value]) => [key, value.amount])),
+        liabilities: Object.fromEntries(Object.entries(liabilities).map(([key, value]) => [key, value.amount])),
         note,
         date: new Date().toISOString().split('T')[0]
       };

@@ -1,18 +1,18 @@
 // AssetsSection.tsx
 import React, { useState } from 'react';
 import { Plus, TrendingUp, TrendingDown, PieChart } from 'lucide-react';
+import { AssetSnapshot, SnapshotValue } from '../../types';
+// interface SnapshotValue {
+//   amount: number;
+//   invested: number;
+// }
 
-interface SnapshotValue {
-  amount: number;
-  invested: number;
-}
-
-interface AssetSnapshot {
-  date: string;
-  note: string;
-  assets: Record<string, SnapshotValue>;
-  liabilities: Record<string, SnapshotValue>;
-}
+// interface AssetSnapshot {
+//   date: string;
+//   note: string;
+//   assets: Record<string, SnapshotValue>;
+//   liabilities: Record<string, SnapshotValue>;
+// }
 
 interface AssetsSectionProps {
   snapshots: AssetSnapshot[];
