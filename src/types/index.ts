@@ -73,14 +73,17 @@ export interface Task {
 }
 
 export interface AssetSnapshot {
-  id: string;
-  total_savings?: number;
-  total_liabilities?: number;
-  assets?: Record<string, number>;
-  liabilities?: Record<string, number>;
   date: string;
   note: string;
+  assets: Record<string, SnapshotValue>;
+  liabilities: Record<string, SnapshotValue>;
 }
+
+export interface SnapshotValue {
+  amount: number;
+  invested: number;
+}
+
 
 export interface Category {
   name: string;
