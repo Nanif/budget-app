@@ -9,7 +9,7 @@ interface FundModalProps {
   isOpen: boolean;
   onClose: () => void;
   onAddFund?: (fund: CreateFundRequest) => void;
-  onEditFund?: (fund: UpdateFundRequest, id: string) => void;
+  onEditFund?: (id: string, fund: UpdateFundRequest) => void;
   editingFund?: UpdateFundRequest | null;
   fundId: string,
   categories: GetCategoryRequest[];
@@ -81,7 +81,7 @@ const FundModal: React.FC<FundModalProps> = ({
     };
 
     if (editingFund && onEditFund) {
-      onEditFund(fundData, fundId);
+      onEditFund(fundId, fundData);
     } else if (onAddFund) {
       onAddFund(fundData);
     }

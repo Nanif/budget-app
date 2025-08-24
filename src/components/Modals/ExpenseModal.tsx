@@ -3,6 +3,7 @@ import { X, TrendingDown, Plus, DollarSign, FileText, Tag, Calendar } from 'luci
 
 import {  CreateExpenseRequest, UpdateExpenseRequest } from '../../services';
 import { GetCategoryRequest } from '../../services/categoriesService';
+import { formatNumber, cleanNumber, handleAmountChange } from '../../utils/formatUtils';
 
 interface ExpenseModalProps {
   isOpen: boolean;
@@ -51,22 +52,8 @@ const ExpenseModal: React.FC<ExpenseModalProps> = ({
     }
   }, [editingExpense, isOpen]);
 
-  const formatNumber = (value: string) => {
-    const cleanValue = value.replace(/[^\d.]/g, '');
-    const parts = cleanValue.split('.');
-    const integerPart = parts[0];
-    const decimalPart = parts[1];
-    const formattedInteger = integerPart.replace(/\B(?=(\d{3})+(?!\d))/g, ',');
-    return decimalPart !== undefined ? `${formattedInteger}.${decimalPart}` : formattedInteger;
-  };
-
-  const cleanNumber = (value: string) => {
-    return value.replace(/,/g, '');
-  };
-
-  const handleAmountChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const formatted = formatNumber(e.target.value);
-    setAmount(formatted);
+  const handleAmountInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    handleAmountChange(e.target.value, setAmount);
   };
 
   const handleSubmit = (e: React.FormEvent) => {

@@ -190,7 +190,7 @@ const TitheSection: React.FC<TitheSectionProps> = ({ totalIncome, tithePercentag
               onChange={(e) => setAmount(e.target.value)}
               onKeyDown={handleKeyPress}
               placeholder="סכום"
-              className="w-24 p-2 border border-gray-200 rounded-md text-xs bg-white focus:border-gray-300 focus:ring-1 focus:ring-gray-200 transition-all"
+              className="w-24 p-2 border border-gray-200 rounded-md text-xs bg-white focus:border-gray-300 focus:ring-1 focus:ring-gray-200 transition-all [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
             />
 
             {/* שדה תיאור */}

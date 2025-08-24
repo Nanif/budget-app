@@ -34,7 +34,7 @@ const CharitySettingsSection: React.FC<CharitySettingsSectionProps> = ({
               min="0"
               max="100"
               step="0.1"
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-pink-200 focus:border-pink-400"
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-pink-200 focus:border-pink-400 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
             />
             <span className="absolute left-3 top-2 text-gray-500">%</span>
           </div>

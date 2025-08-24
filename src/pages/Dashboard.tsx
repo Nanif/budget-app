@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Fund, Income, Expense, TitheGiven, Debt, Task, Category, BudgetYear, FundBudget, AssetSnapshot, SnapshotValue } from '../types';
+import { Fund, Income, Expense, TitheGiven, Debt, Task, Category, BudgetYear, FundBudget, AssetSnapshot } from '../types';
 import TopActions from '../components/Dashboard/TopActions';
 
 import BudgetChart from '../components/Dashboard/BudgetChart';
@@ -273,13 +273,36 @@ const Dashboard: React.FC = () => {
     if (!selectedBudgetYear) return;
 
     try {
+      // עדכון מקומי של הקופה
+      setFunds(prev => prev.map(fund => {
+        if (fund.level === 1) { // קופת שוטף
+          return {
+            ...fund,
+            amount_given: (fund.amount_given || 0) + amount
+          };
+        }
+        return fund;
+      }));
+      
+      // הודעת הצלחה
+      addNotification({
+        type: 'success',
+        title: 'נוסף למעטפה',
+        message: `נוסף ${amount} ש"ח למעטפה בחודש ${getMonthName(currentDisplayMonth)}`
+      });
+      
       if (ENV.DEV_MODE) {
-        console.log(`נוסף ${amount} ש"ח למעטפה בחודש ${getMonthName(currentDisplayMonth)}`);
+        console.log(`✅ נוסף ${amount} ש"ח למעטפה בחודש ${getMonthName(currentDisplayMonth)}`);
       }
     } catch (error) {
       if (ENV.DEV_MODE) {
         console.error('Failed to add money to envelope:', error);
       }
+      addNotification({
+        type: 'error',
+        title: 'שגיאה',
+        message: 'לא ניתן להוסיף כסף למעטפה כרגע'
+      });
     }
   }, [selectedBudgetYear, currentDisplayMonth]);
 
@@ -330,6 +353,17 @@ const Dashboard: React.FC = () => {
     }
   }, []);
 
+  const handleUpdateDebt = useCallback(async (id: string, updates: Partial<Debt>) => {
+    try {
+      const updatedDebt = await debtsService.updateDebt(id, updates);
+      setDebts(prev => prev.map(debt => debt.id === id ? updatedDebt : debt));
+    } catch (error) {
+      if (ENV.DEV_MODE) {
+        console.error('Failed to update debt:', error);
+      }
+    }
+  }, []);
+
   const handleAddTask = useCallback(async (title: string, important: boolean = false) => {
     try {
       const taskData = {
@@ -369,8 +403,10 @@ const Dashboard: React.FC = () => {
     }
   }, []);
 
-  const handleAddAssetSnapshot = useCallback(async (assets: Record<string, SnapshotValue>, liabilities: Record<string, SnapshotValue>, note: string) => {
+  const handleAddAssetSnapshot = useCallback(async (assets: Record<string, { amount: number }>, liabilities: Record<string, { amount: number }>, note: string) => {
     try {
+      console.log('מתחיל שמירת תמונת מצב:', { assets, liabilities, note });
+      
       const snapshotData = {
         assets: Object.fromEntries(Object.entries(assets).map(([key, value]) => [key, value.amount])),
         liabilities: Object.fromEntries(Object.entries(liabilities).map(([key, value]) => [key, value.amount])),
@@ -378,9 +414,27 @@ const Dashboard: React.FC = () => {
         date: new Date().toISOString().split('T')[0]
       };
 
+      console.log('נתוני תמונת מצב לשליחה:', snapshotData);
+      
       const createdSnapshot = await assetsService.createAssetSnapshot(snapshotData);
+      console.log('תמונת מצב נוצרה בהצלחה:', createdSnapshot);
+      
       setAssetSnapshots(prev => [createdSnapshot, ...prev]);
+      
+      addNotification({
+        type: 'success',
+        title: 'תמונת מצב נשמרה',
+        message: 'תמונת מצב הנכסים נשמרה בהצלחה'
+      });
+      
     } catch (error) {
+      console.error('שגיאה בשמירת תמונת מצב:', error);
+      addNotification({
+        type: 'error',
+        title: 'שגיאה בשמירה',
+        message: 'לא ניתן לשמור את תמונת המצב כרגע'
+      });
+      
       if (ENV.DEV_MODE) {
         console.error('Failed to create asset snapshot:', error);
       }
@@ -511,6 +565,8 @@ const Dashboard: React.FC = () => {
                   debts={debts}
                   onAddDebt={handleAddDebt}
                   onDeleteDebt={handleDeleteDebt}
+                  onUpdateDebt={handleUpdateDebt}
+                  onUpdateDebt={handleUpdateDebt}
                 />
               </div>
             </div>
@@ -548,7 +604,7 @@ const Dashboard: React.FC = () => {
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             <div className="bg-white rounded-lg shadow-md p-6">
               <h2 className="text-xl font-semibold text-gray-800 mb-6 text-center">
-                מצב קופות - {selectedBudgetYear?.name}
+                מצב קופות
               </h2>
               <FundsGrid
                 funds={funds}

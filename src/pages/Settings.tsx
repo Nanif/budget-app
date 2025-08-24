@@ -16,6 +16,7 @@ import CharitySettingsSection from '../components/Settings/CharitySettingsSectio
 import FundsSettingsSection from '../components/Settings/FundsSettingsSection';
 import CategoriesManagementSection from '../components/Settings/CategoriesManagementSection';
 import FundsManagementSection from '../components/Settings/FundsManagementSection';
+import AssetsManagementSection from '../components/Settings/AssetsManagementSection';
 
 const Settings: React.FC = () => {
   // System settings hook
@@ -163,7 +164,6 @@ const Settings: React.FC = () => {
   };
 
   const handleUpdateFund = async (id: string, fundData: UpdateFundRequest) => {
-    debugger
     await updateFund(id, fundData);
   };
 
@@ -278,6 +278,14 @@ const Settings: React.FC = () => {
             onDeleteFund={handleDeleteFund}
             onGetEditingFund={getEditingFund}
             onConfirmDialog={setConfirmDialog}
+          />
+
+          {/* ניהול נכסים והתחייבויות */}
+          <AssetsManagementSection 
+            onAssetsChange={() => {
+              // רענון נתונים אם נדרש
+              console.log('Assets configuration changed');
+            }}
           />
         </div>
       </div>

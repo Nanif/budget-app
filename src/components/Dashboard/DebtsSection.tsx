@@ -1,11 +1,12 @@
 import React, { useState } from 'react';
-import { Plus, CreditCard, Trash2, ArrowLeft, ArrowRight, Eye, X } from 'lucide-react';
+import { Plus, CreditCard, Trash2, ArrowLeft, ArrowRight, Eye, X, Check } from 'lucide-react';
 import { Debt } from '../../types';
 
 interface DebtsSectionProps {
   debts: Debt[];
   onAddDebt: (amount: number, description: string, note: string, type: 'owed_to_me' | 'i_owe') => void;
   onDeleteDebt: (id: string) => void;
+  onUpdateDebt: (id: string, updates: Partial<Debt>) => void;
 }
 
 interface DebtsModalProps {
@@ -96,7 +97,7 @@ const DebtsModal: React.FC<DebtsModalProps> = ({ isOpen, onClose, debts, onDelet
             <div>
               <h3 className="text-lg font-semibold text-gray-800 mb-4 flex items-center gap-2">
                 <div className="w-3 h-3 bg-red-400 rounded-full"></div>
-                אני חייבת ({debtsIOwe.length})
+                אני חייב ({debtsIOwe.length})
               </h3>
               <div className="space-y-2 max-h-96 overflow-y-auto">
                 {debtsIOwe.length > 0 ? (
@@ -129,7 +130,7 @@ const DebtsModal: React.FC<DebtsModalProps> = ({ isOpen, onClose, debts, onDelet
                     ))}
                   </ul>
                 ) : (
-                  <p className="text-center text-gray-500 py-8">אין חובות שאני חייבת</p>
+                  <p className="text-center text-gray-500 py-8">אין חובות שאני חייב</p>
                 )}
               </div>
             </div>
@@ -140,12 +141,33 @@ const DebtsModal: React.FC<DebtsModalProps> = ({ isOpen, onClose, debts, onDelet
   );
 };
 
-// רשימת חובות עם bullets
-const DebtsList = ({ debts, type, emptyMessage, onDeleteDebt }: { 
-  debts: Debt[], 
-  type: 'owed_to_me' | 'i_owe',
-  emptyMessage: string,
-  onDeleteDebt: (id: string) => void,
+// רכיב עזר לעריכה מהירה
+const InlineEditField: React.FC<{
+  debt: Debt;
+  field: 'description' | 'note' | 'amount';
+  value: string | number;
+  isEditing: boolean;
+  editingValue: string;
+  onStartEdit: () => void;
+  onSaveEdit: () => void;
+  onCancelEdit: () => void;
+  onEditChange: (value: string) => void;
+  onEditKeyPress: (e: React.KeyboardEvent) => void;
+  className?: string;
+  placeholder?: string;
+}> = ({
+  debt,
+  field,
+  value,
+  isEditing,
+  editingValue,
+  onStartEdit,
+  onSaveEdit,
+  onCancelEdit,
+  onEditChange,
+  onEditKeyPress,
+  className = '',
+  placeholder = ''
 }) => {
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('he-IL', {
@@ -156,183 +178,86 @@ const DebtsList = ({ debts, type, emptyMessage, onDeleteDebt }: {
     }).format(amount);
   };
 
-
-  return (
-    <div className="space-y-1">
-      {debts.length > 0 ? (
-        <ul className="space-y-1">
-          {debts.map(debt => (
-            <li key={debt.id} className="group flex items-start gap-2 py-1">
-              {/* Bullet point - אדום לאני חייבת, ירוק לחייבים לי */}
-              <div className={`w-1.5 h-1.5 rounded-full mt-2 flex-shrink-0 ${
-                type === 'owed_to_me' ? 'bg-emerald-500' : 'bg-red-500'
-              }`}></div>
-              
-              <div className="flex-1 min-w-0">
-                <div className="flex justify-between items-start">
-                  <div className="flex-1 min-w-0">
-                    <p className="text-xs font-medium text-gray-800 leading-relaxed">{debt.description}</p>
-                    {debt.note && (
-                      <p className="text-xs text-gray-500 mt-0.5 leading-relaxed">{debt.note}</p>
-                    )}
-                  </div>
-                  <div className="flex items-center gap-1 flex-shrink-0 mr-2">
-                    <span className={`text-xs font-semibold ${
-                      type === 'owed_to_me' ? 'text-emerald-600' : 'text-red-600'
-                    }`}>
-                      {formatCurrency(debt.amount)}
-                    </span>
-                    
-                    <button
-                      onClick={() => onDeleteDebt(debt.id)}
-                      className="opacity-0 group-hover:opacity-100 text-gray-400 hover:text-red-500 p-0.5 rounded transition-all duration-200"
-                      title="מחיקת חוב"
-                    >
-                      <Trash2 size={10} />
-                    </button>
-                  </div>
-                </div>
-              </div>
-            </li>
-          ))}
-        </ul>
-      ) : (
-        <div className="text-center py-4 text-gray-400">
-          <div className="w-6 h-6 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-2">
-            {type === 'owed_to_me' ? (
-              <ArrowLeft size={12} className="text-gray-400" />
-            ) : (
-              <ArrowRight size={12} className="text-gray-400" />
-            )}
-          </div>
-          <p className="text-xs font-medium">{emptyMessage}</p>
-        </div>
-      )}
-    </div>
-  );
-};
-
-const AddDebtForm = ({ 
-  type, 
-  form, 
-  onUpdateForm, 
-  onAddDebt, 
-  onKeyPress 
-}: { 
-  type: 'owed_to_me' | 'i_owe',
-  form: { amount: string, description: string, note: string },
-  onUpdateForm: (field: string, value: string) => void,
-  onAddDebt: () => void,
-  onKeyPress: (e: React.KeyboardEvent) => void
-}) => {
-  return (
-    <div className="space-y-2 p-2 bg-white border border-gray-100 rounded-lg">
-      <div className="space-y-2">
+  if (isEditing) {
+    return (
+      <div className="flex items-center gap-1">
         <input
-          type="number"
-          value={form.amount}
-          onChange={(e) => onUpdateForm('amount', e.target.value)}
-          onKeyDown={onKeyPress}
-          placeholder="סכום"
-          className="w-full p-2 border border-gray-200 rounded-md text-xs bg-white focus:border-gray-300 focus:ring-1 focus:ring-gray-200 transition-all"
+          type={field === 'amount' ? 'number' : 'text'}
+          value={editingValue}
+          onChange={(e) => onEditChange(e.target.value)}
+          onKeyDown={onEditKeyPress}
+          onBlur={onSaveEdit}
+          className="flex-1 p-1 border border-blue-300 rounded text-xs focus:border-blue-500 focus:ring-1 focus:ring-blue-200"
+          placeholder={placeholder}
+          autoFocus
         />
-        
-        <input
-          type="text"
-          value={form.description}
-          onChange={(e) => onUpdateForm('description', e.target.value)}
-          onKeyDown={onKeyPress}
-          placeholder="תיאור"
-          className="w-full p-2 border border-gray-200 rounded-md text-xs bg-white focus:border-gray-300 focus:ring-1 focus:ring-gray-200 transition-all"
-        />
-        
-        <input
-          type="text"
-          value={form.note}
-          onChange={(e) => onUpdateForm('note', e.target.value)}
-          onKeyDown={onKeyPress}
-          placeholder="הערה (אופציונלי)"
-          className="w-full p-2 border border-gray-200 rounded-md text-xs bg-white focus:border-gray-300 focus:ring-1 focus:ring-gray-200 transition-all"
-        />
+        <button
+          onClick={onSaveEdit}
+          className="text-green-600 hover:text-green-800 p-0.5"
+          title="שמירה"
+        >
+          <Check size={10} />
+        </button>
+        <button
+          onClick={onCancelEdit}
+          className="text-red-600 hover:text-red-800 p-0.5"
+          title="ביטול"
+        >
+          <X size={10} />
+        </button>
       </div>
-      
-      <button
-        onClick={onAddDebt}
-        disabled={!form.amount || !form.description.trim()}
-        className={`w-full py-2 rounded-md text-xs font-medium transition-all flex items-center justify-center gap-2 ${
-          form.amount && form.description.trim()
-            ? 'bg-gray-600 text-white hover:bg-gray-700 shadow-sm hover:shadow-md'
-            : 'bg-gray-100 text-gray-400 cursor-not-allowed'
-        }`}
-      >
-        <Plus size={12} />
-        הוספה
-      </button>
-    </div>
+    );
+  }
+
+  return (
+    <span
+      onDoubleClick={onStartEdit}
+      className={`cursor-pointer hover:bg-blue-50 px-1 py-0.5 rounded transition-colors ${className}`}
+      title="לחץ פעמיים לעריכה"
+    >
+      {field === 'amount' ? formatCurrency(Number(value)) : value}
+    </span>
   );
 };
 
-  /**
-   * Renders a section that shows debts owed to and by the user.
-   * 
-   * The component renders two columns: one for debts owed to the user,
-   * and one for debts owed by the user. Each column contains a list
-   * of debts, and a form to add a new debt. The form includes fields
-   * for the debt amount, description, and an optional note.
-   * 
-   * When the user submits the form, the `onAddDebt` callback is called
-   * with the debt amount, description, note, and type (either
-   * "owed_to_me" or "i_owe").
-   * 
-   * The component also renders a button to view all debts, which opens
-   * a modal with a list of all debts. The user can delete debts from
-   * this modal.
-   * 
-   * @param {DebtsSectionProps} props - The component props.
-   * @param {Debt[]} props.debts - The list of debts to render.
-   * @param {(amount: number, description: string, note: string, type: 'owed_to_me' | 'i_owe') => void} props.onAddDebt - The callback to call when the user submits the debt form.
-   * @param {(debtId: string) => void} props.onDeleteDebt - The callback to call when the user deletes a debt.
-   * @returns {React.ReactElement} The rendered component.
-   */
-const DebtsSection: React.FC<DebtsSectionProps> = ({ debts, onAddDebt, onDeleteDebt }) => {
-  // State נפרד לכל סוג חוב
-  const [owedToMeForm, setOwedToMeForm] = useState({
-    amount: '',
-    description: '',
-    note: ''
-  });
-
-  const [iOweForm, setIOweForm] = useState({
-    amount: '',
-    description: '',
-    note: ''
-  });
+const DebtsSection: React.FC<DebtsSectionProps> = ({ debts, onAddDebt, onDeleteDebt, onUpdateDebt }) => {
+  // State for forms
+  const [owedToMeForm, setOwedToMeForm] = useState({ amount: '', description: '', note: '' });
+  const [iOweForm, setIOweForm] = useState({ amount: '', description: '', note: '' });
+  
+  // State for inline editing
+  const [editingDebtId, setEditingDebtId] = useState<string | null>(null);
+  const [editingField, setEditingField] = useState<'amount' | 'description' | 'note' | null>(null);
+  const [editingValue, setEditingValue] = useState('');
+  const [originalValue, setOriginalValue] = useState('');
 
   const [showAllModal, setShowAllModal] = useState(false);
 
-  // הפרדת החובות לשני סוגים
   const debtsOwedToMe = debts.filter(debt => debt.type === 'owed_to_me');
-  const debtsIOwe = debts.filter(debt => debt.type === 'i_owe' || !debt.type); // תאימות לאחור
+  const debtsIOwe = debts.filter(debt => debt.type === 'i_owe' || !debt.type);
 
-  const handleAddDebt = (type: 'owed_to_me' | 'i_owe') => {
-    const form = type === 'owed_to_me' ? owedToMeForm : iOweForm;
-    
-    if (form.amount && form.description.trim()) {
-      onAddDebt(Number(form.amount), form.description.trim(), form.note.trim(), type);
-      
-      // איפוס הטופס הספציפי
-      if (type === 'owed_to_me') {
-        setOwedToMeForm({ amount: '', description: '', note: '' });
-      } else {
-        setIOweForm({ amount: '', description: '', note: '' });
-      }
+  const handleAddOwedToMe = () => {
+    if (owedToMeForm.amount && owedToMeForm.description.trim()) {
+      onAddDebt(Number(owedToMeForm.amount), owedToMeForm.description.trim(), owedToMeForm.note.trim(), 'owed_to_me');
+      setOwedToMeForm({ amount: '', description: '', note: '' });
+    }
+  };
+
+  const handleAddIOwe = () => {
+    if (iOweForm.amount && iOweForm.description.trim()) {
+      onAddDebt(Number(iOweForm.amount), iOweForm.description.trim(), iOweForm.note.trim(), 'i_owe');
+      setIOweForm({ amount: '', description: '', note: '' });
     }
   };
 
   const handleKeyPress = (e: React.KeyboardEvent, type: 'owed_to_me' | 'i_owe') => {
     if (e.key === 'Enter') {
       e.preventDefault();
-      handleAddDebt(type);
+      if (type === 'owed_to_me') {
+        handleAddOwedToMe();
+      } else {
+        handleAddIOwe();
+      }
     }
   };
 
@@ -344,8 +269,82 @@ const DebtsSection: React.FC<DebtsSectionProps> = ({ debts, onAddDebt, onDeleteD
     setIOweForm(prev => ({ ...prev, [field]: value }));
   };
 
+  // Inline editing handlers
+  const handleStartEdit = (debt: Debt, field: 'amount' | 'description' | 'note') => {
+    setEditingDebtId(debt.id);
+    setEditingField(field);
+    
+    let currentValue = '';
+    if (field === 'amount') {
+      currentValue = debt.amount.toString();
+    } else if (field === 'description') {
+      currentValue = debt.description;
+    } else if (field === 'note') {
+      currentValue = debt.note || '';
+    }
+    
+    setEditingValue(currentValue);
+    setOriginalValue(currentValue);
+  };
+
+  const handleSaveEdit = async () => {
+    if (editingDebtId && editingField && editingValue.trim()) {
+      try {
+        let updateData: Partial<Debt> = {};
+        
+        if (editingField === 'amount') {
+          const newAmount = Number(editingValue);
+          if (!isNaN(newAmount) && newAmount > 0) {
+            updateData.amount = newAmount;
+          } else {
+            handleCancelEdit();
+            return;
+          }
+        } else if (editingField === 'description') {
+          updateData.description = editingValue.trim();
+        } else if (editingField === 'note') {
+          updateData.note = editingValue.trim();
+        }
+
+        await onUpdateDebt(editingDebtId, updateData);
+        console.log(`✅ חוב עודכן: ${editingField} = ${editingValue}`);
+      } catch (error) {
+        console.error('❌ Failed to update debt:', error);
+        setEditingValue(originalValue);
+      }
+    }
+    
+    handleCancelEdit();
+  };
+
+  const handleCancelEdit = () => {
+    setEditingDebtId(null);
+    setEditingField(null);
+    setEditingValue('');
+    setOriginalValue('');
+  };
+
+  const handleEditKeyPress = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      handleSaveEdit();
+    } else if (e.key === 'Escape') {
+      e.preventDefault();
+      handleCancelEdit();
+    }
+  };
+
   const totalDebts = debts.length;
-  const showViewAllButton = totalDebts > 6; // 3 מכל סוג
+  const showViewAllButton = totalDebts > 6;
+
+  const formatCurrency = (amount: number) => {
+    return new Intl.NumberFormat('he-IL', {
+      style: 'currency',
+      currency: 'ILS',
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0,
+    }).format(amount);
+  };
 
   return (
     <>
@@ -369,69 +368,281 @@ const DebtsSection: React.FC<DebtsSectionProps> = ({ debts, onAddDebt, onDeleteD
             </button>
           )}
         </div>
-  
-        {/* שתי עמודות של חובות */}
-        <div className="grid grid-cols-2 gap-3 h-full">
-          {/* עמודה שמאלית - חייבים לי */}
-          <div className="flex flex-col h-full">
-            <div className="flex items-center gap-2 mb-2 pb-1 border-b border-gray-100">
-              <div className="w-2 h-2 bg-emerald-400 rounded-full"></div>
-              <h4 className="text-xs font-medium text-gray-600">חייבים לי</h4>
+
+        {/* גריד עם שתי עמודות */}
+        <div className="grid grid-cols-2 gap-4 h-full max-h-[600px] overflow-hidden">
+          {/* עמודה שמאלית: חייבים לי */}
+          <div className="flex flex-col h-full max-h-full overflow-hidden">
+            <div className="bg-emerald-100 text-sm font-semibold text-emerald-700 mb-3 flex items-center gap-2 p-2 rounded-lg border border-emerald-200">
+              <ArrowLeft size={14} className="text-emerald-500" />
+              <span>חייבים לי ({debtsOwedToMe.length})</span>
             </div>
-  
-            <div className="flex-1 flex flex-col overflow-hidden">
-              <div style={{ maxHeight: '430px', overflowY: 'auto' }}>
-                <DebtsList 
-                  debts={debtsOwedToMe} 
-                  type="owed_to_me"
-                  emptyMessage="אין חובות שחייבים לי"
-                  onDeleteDebt={onDeleteDebt}
-                />
-              </div>
-  
-              <div className="mt-auto pt-2">
-                <AddDebtForm 
-                  type="owed_to_me" 
-                  form={owedToMeForm}
-                  onUpdateForm={updateOwedToMeForm}
-                  onAddDebt={() => handleAddDebt('owed_to_me')}
-                  onKeyPress={(e) => handleKeyPress(e, 'owed_to_me')}
-                />
-              </div>
+            
+            {/* רשימת חובות */}
+            <div className="flex-1 overflow-y-auto mb-3 max-h-[400px]">
+              {debtsOwedToMe.length > 0 ? (
+                <ul className="space-y-2">
+                  {debtsOwedToMe.map(debt => (
+                    <li key={debt.id} className="group">
+                      <div className="p-2 rounded-lg border border-emerald-100 hover:bg-emerald-50 transition-all">
+                        <div className="flex justify-between items-start">
+                          <div className="flex-1 min-w-0">
+                            <div className="text-xs font-medium text-emerald-800 break-words">
+                              <InlineEditField
+                                debt={debt}
+                                field="description"
+                                value={debt.description}
+                                isEditing={editingDebtId === debt.id && editingField === 'description'}
+                                editingValue={editingValue}
+                                onStartEdit={() => handleStartEdit(debt, 'description')}
+                                onSaveEdit={handleSaveEdit}
+                                onCancelEdit={handleCancelEdit}
+                                onEditChange={setEditingValue}
+                                onEditKeyPress={handleEditKeyPress}
+                                placeholder="תיאור החוב"
+                              />
+                            </div>
+                            {debt.note && (
+                              <div className="text-xs text-emerald-600 mt-1 break-words">
+                                <InlineEditField
+                                  debt={debt}
+                                  field="note"
+                                  value={debt.note}
+                                  isEditing={editingDebtId === debt.id && editingField === 'note'}
+                                  editingValue={editingValue}
+                                  onStartEdit={() => handleStartEdit(debt, 'note')}
+                                  onSaveEdit={handleSaveEdit}
+                                  onCancelEdit={handleCancelEdit}
+                                  onEditChange={setEditingValue}
+                                  onEditKeyPress={handleEditKeyPress}
+                                  placeholder="הערה"
+                                />
+                              </div>
+                            )}
+                          </div>
+                          
+                          <div className="flex items-center gap-1 flex-shrink-0">
+                            <div className="text-xs font-bold text-emerald-700">
+                              <InlineEditField
+                                debt={debt}
+                                field="amount"
+                                value={debt.amount}
+                                isEditing={editingDebtId === debt.id && editingField === 'amount'}
+                                editingValue={editingValue}
+                                onStartEdit={() => handleStartEdit(debt, 'amount')}
+                                onSaveEdit={handleSaveEdit}
+                                onCancelEdit={handleCancelEdit}
+                                onEditChange={setEditingValue}
+                                onEditKeyPress={handleEditKeyPress}
+                                className="text-emerald-700"
+                                placeholder="סכום"
+                              />
+                            </div>
+                            
+                            <button
+                              onClick={() => onDeleteDebt(debt.id)}
+                              className="opacity-0 group-hover:opacity-100 text-gray-400 hover:text-red-500 p-0.5 rounded transition-all"
+                              title="מחיקת חוב"
+                            >
+                              <Trash2 size={10} />
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <div className="text-center py-4 text-gray-400">
+                  <div className="w-6 h-6 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-2">
+                    <ArrowLeft size={12} className="text-gray-400" />
+                  </div>
+                  <p className="text-xs font-medium">אין חובות</p>
+                </div>
+              )}
+            </div>
+
+            {/* טופס הוספה */}
+            <div className="space-y-2 p-2 bg-white border border-gray-100 rounded-lg">
+              <input
+                type="number"
+                value={owedToMeForm.amount}
+                onChange={(e) => updateOwedToMeForm('amount', e.target.value)}
+                onKeyDown={(e) => handleKeyPress(e, 'owed_to_me')}
+                placeholder="סכום"
+                className="w-full p-2 border border-gray-200 rounded-md text-xs bg-white focus:border-gray-300 focus:ring-1 focus:ring-gray-200 transition-all [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+              />
+              
+              <input
+                type="text"
+                value={owedToMeForm.description}
+                onChange={(e) => updateOwedToMeForm('description', e.target.value)}
+                onKeyDown={(e) => handleKeyPress(e, 'owed_to_me')}
+                placeholder="תיאור"
+                className="w-full p-2 border border-gray-200 rounded-md text-xs bg-white focus:border-gray-300 focus:ring-1 focus:ring-gray-200 transition-all"
+              />
+              
+              <input
+                type="text"
+                value={owedToMeForm.note}
+                onChange={(e) => updateOwedToMeForm('note', e.target.value)}
+                onKeyDown={(e) => handleKeyPress(e, 'owed_to_me')}
+                placeholder="הערה (אופציונלי)"
+                className="w-full p-2 border border-gray-200 rounded-md text-xs bg-white focus:border-gray-300 focus:ring-1 focus:ring-gray-200 transition-all"
+              />
+              
+              <button
+                onClick={handleAddOwedToMe}
+                disabled={!owedToMeForm.amount || !owedToMeForm.description.trim()}
+                className={`w-full py-2 rounded-md text-xs font-medium transition-all flex items-center justify-center gap-2 ${
+                  owedToMeForm.amount && owedToMeForm.description.trim()
+                    ? 'bg-emerald-600 text-white hover:bg-emerald-700 shadow-sm hover:shadow-md'
+                    : 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                }`}
+              >
+                <Plus size={12} />
+                הוספה
+              </button>
             </div>
           </div>
-  
-          {/* עמודה ימנית - אני חייבת */}
-          <div className="flex flex-col h-full">
-            <div className="flex items-center gap-2 mb-2 pb-1 border-b border-gray-100">
-              <div className="w-2 h-2 bg-red-400 rounded-full"></div>
-              <h4 className="text-xs font-medium text-gray-600">אני חייבת</h4>
+
+          {/* עמודה ימנית: אני חייב */}
+          <div className="flex flex-col h-full max-h-full overflow-hidden">
+            <div className="bg-red-100 text-sm font-semibold text-red-700 mb-3 flex items-center gap-2 p-2 rounded-lg border border-red-200">
+              <ArrowRight size={14} className="text-red-500" />
+              <span>אני חייב ({debtsIOwe.length})</span>
             </div>
-  
-            <div className="flex-1 flex flex-col overflow-hidden">
-              <div style={{ maxHeight: '430px', overflowY: 'auto' }}>
-                <DebtsList 
-                  debts={debtsIOwe} 
-                  type="i_owe"
-                  emptyMessage="אין חובות שאני חייבת"
-                  onDeleteDebt={onDeleteDebt}
-                />
-              </div>
-  
-              <div className="mt-auto pt-2">
-                <AddDebtForm 
-                  type="i_owe" 
-                  form={iOweForm}
-                  onUpdateForm={updateIOweForm}
-                  onAddDebt={() => handleAddDebt('i_owe')}
-                  onKeyPress={(e) => handleKeyPress(e, 'i_owe')}
-                />
-              </div>
+            
+            {/* רשימת חובות */}
+            <div className="flex-1 overflow-y-auto mb-3 max-h-[400px]">
+              {debtsIOwe.length > 0 ? (
+                <ul className="space-y-2">
+                  {debtsIOwe.map(debt => (
+                    <li key={debt.id} className="group">
+                      <div className="p-2 rounded-lg border border-red-100 hover:bg-red-50 transition-all">
+                        <div className="flex justify-between items-start">
+                          <div className="flex-1 min-w-0">
+                            <div className="text-xs font-medium text-red-800 break-words">
+                              <InlineEditField
+                                debt={debt}
+                                field="description"
+                                value={debt.description}
+                                isEditing={editingDebtId === debt.id && editingField === 'description'}
+                                editingValue={editingValue}
+                                onStartEdit={() => handleStartEdit(debt, 'description')}
+                                onSaveEdit={handleSaveEdit}
+                                onCancelEdit={handleCancelEdit}
+                                onEditChange={setEditingValue}
+                                onEditKeyPress={handleEditKeyPress}
+                                placeholder="תיאור החוב"
+                              />
+                            </div>
+                            {debt.note && (
+                              <div className="text-xs text-red-600 mt-1 break-words">
+                                <InlineEditField
+                                  debt={debt}
+                                  field="note"
+                                  value={debt.note}
+                                  isEditing={editingDebtId === debt.id && editingField === 'note'}
+                                  editingValue={editingValue}
+                                  onStartEdit={() => handleStartEdit(debt, 'note')}
+                                  onSaveEdit={handleSaveEdit}
+                                  onCancelEdit={handleCancelEdit}
+                                  onEditChange={setEditingValue}
+                                  onEditKeyPress={handleEditKeyPress}
+                                  placeholder="הערה"
+                                />
+                              </div>
+                            )}
+                          </div>
+                          
+                          <div className="flex items-center gap-1 flex-shrink-0">
+                            <div className="text-xs font-bold text-red-700">
+                              <InlineEditField
+                                debt={debt}
+                                field="amount"
+                                value={debt.amount}
+                                isEditing={editingDebtId === debt.id && editingField === 'amount'}
+                                editingValue={editingValue}
+                                onStartEdit={() => handleStartEdit(debt, 'amount')}
+                                onSaveEdit={handleSaveEdit}
+                                onCancelEdit={handleCancelEdit}
+                                onEditChange={setEditingValue}
+                                onEditKeyPress={handleEditKeyPress}
+                                className="text-red-700"
+                                placeholder="סכום"
+                              />
+                            </div>
+                            
+                            <button
+                              onClick={() => onDeleteDebt(debt.id)}
+                              className="opacity-0 group-hover:opacity-100 text-gray-400 hover:text-red-500 p-0.5 rounded transition-all"
+                              title="מחיקת חוב"
+                            >
+                              <Trash2 size={10} />
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <div className="text-center py-4 text-gray-400">
+                  <div className="w-6 h-6 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-2">
+                    <ArrowRight size={12} className="text-gray-400" />
+                  </div>
+                  <p className="text-xs font-medium">אין חובות</p>
+                </div>
+              )}
+            </div>
+
+            {/* טופס הוספה */}
+            <div className="space-y-2 p-2 bg-white border border-gray-100 rounded-lg">
+              <input
+                type="number"
+                value={iOweForm.amount}
+                onChange={(e) => updateIOweForm('amount', e.target.value)}
+                onKeyDown={(e) => handleKeyPress(e, 'i_owe')}
+                placeholder="סכום"
+                className="w-full p-2 border border-gray-200 rounded-md text-xs bg-white focus:border-gray-300 focus:ring-1 focus:ring-gray-200 transition-all [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+              />
+              
+              <input
+                type="text"
+                value={iOweForm.description}
+                onChange={(e) => updateIOweForm('description', e.target.value)}
+                onKeyDown={(e) => handleKeyPress(e, 'i_owe')}
+                placeholder="תיאור"
+                className="w-full p-2 border border-gray-200 rounded-md text-xs bg-white focus:border-gray-300 focus:ring-1 focus:ring-gray-200 transition-all"
+              />
+              
+              <input
+                type="text"
+                value={iOweForm.note}
+                onChange={(e) => updateIOweForm('note', e.target.value)}
+                onKeyDown={(e) => handleKeyPress(e, 'i_owe')}
+                placeholder="הערה (אופציונלי)"
+                className="w-full p-2 border border-gray-200 rounded-md text-xs bg-white focus:border-gray-300 focus:ring-1 focus:ring-gray-200 transition-all"
+              />
+              
+              <button
+                onClick={handleAddIOwe}
+                disabled={!iOweForm.amount || !iOweForm.description.trim()}
+                className={`w-full py-2 rounded-md text-xs font-medium transition-all flex items-center justify-center gap-2 ${
+                  iOweForm.amount && iOweForm.description.trim()
+                    ? 'bg-red-600 text-white hover:bg-red-700 shadow-sm hover:shadow-md'
+                    : 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                }`}
+              >
+                <Plus size={12} />
+                הוספה
+              </button>
             </div>
           </div>
         </div>
       </div>
-  
+
       {/* Modal לכל החובות */}
       <DebtsModal
         isOpen={showAllModal}
@@ -441,7 +652,6 @@ const DebtsSection: React.FC<DebtsSectionProps> = ({ debts, onAddDebt, onDeleteD
       />
     </>
   );
-  
 };
 
 export default DebtsSection;

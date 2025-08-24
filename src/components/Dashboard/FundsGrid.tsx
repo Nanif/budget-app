@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { GetFundRequest } from '../../services/fundsService';
 import { PlusCircle, Calendar, Wallet, TrendingUp, Gift, Coins, DollarSign, Target, Check, X } from 'lucide-react';
 import ColorBadge from '../UI/ColorBadge';
+import FundTransactionsModal from './FundTransactionsModal';
 
 interface FundsGridProps {
   funds: GetFundRequest[];
@@ -11,11 +12,21 @@ interface FundsGridProps {
   onMonthChange: (month: number) => void;
 }
 
+interface FundTransaction {
+  id: string;
+  amount: number;
+  type: 'given' | 'returned';
+  description: string;
+  date: string;
+}
+
 const FundsGrid: React.FC<FundsGridProps> = ({ funds, currentDisplayMonth, onCloseDailyFund, onAddMoneyToEnvelope }) => {
   const [showEnvelopeInput, setShowEnvelopeInput] = useState(false);
   const [envelopeAmount, setEnvelopeAmount] = useState('');
   const [showClosureInput, setShowClosureInput] = useState(false);
   const [remainingAmount, setRemainingAmount] = useState('');
+  const [showTransactionsModal, setShowTransactionsModal] = useState(false);
+  const [selectedFund, setSelectedFund] = useState<GetFundRequest | null>(null);
 
   const level1Funds = funds.filter(fund => fund.level === 1);
   const level2Funds = funds.filter(fund => fund.level === 2);
@@ -50,9 +61,27 @@ const FundsGrid: React.FC<FundsGridProps> = ({ funds, currentDisplayMonth, onClo
 
   const handleEnvelopeSubmit = () => {
     if (envelopeAmount && Number(envelopeAmount) > 0) {
-      onAddMoneyToEnvelope(Number(envelopeAmount));
+      const amount = Number(envelopeAmount);
+      
+      // עדכון מקומי של הקופה
+      const updatedFunds = funds.map(fund => {
+        if (fund.level === 1) { // קופת שוטף
+          return {
+            ...fund,
+            amount_given: (fund.amount_given || 0) + amount
+          };
+        }
+        return fund;
+      });
+      
+      // קריאה לפונקציה מהרכיב האב
+      onAddMoneyToEnvelope(amount);
+      
       setEnvelopeAmount('');
       setShowEnvelopeInput(false);
+      
+      // הודעת הצלחה
+      console.log(`✅ נוסף ${amount} ש"ח למעטפה`);
     }
   };
 
@@ -90,8 +119,30 @@ const FundsGrid: React.FC<FundsGridProps> = ({ funds, currentDisplayMonth, onClo
     }
   };
 
+  const handleShowTransactions = (fund: GetFundRequest) => {
+    setSelectedFund(fund);
+    setShowTransactionsModal(true);
+  };
+
+  // Mock data for transactions - בעתיד יבוא מה-API
+  const getMockTransactions = (fundId: string): FundTransaction[] => {
+    return [
+      { id: '1', amount: 200, type: 'given', description: 'נתינה למעטפה', date: '2024-01-15' },
+      { id: '2', amount: 250, type: 'given', description: 'תוספת תקציב', date: '2024-01-10' },
+      { id: '3', amount: -50, type: 'returned', description: 'החזרה מהמעטפה', date: '2024-01-08' },
+      { id: '4', amount: -49, type: 'returned', description: 'תיקון סכום', date: '2024-01-05' },
+      { id: '5', amount: 300, type: 'given', description: 'העברה מעודפים', date: '2024-01-03' },
+      { id: '6', amount: 150, type: 'given', description: 'תקציב חודשי', date: '2024-01-01' },
+      { id: '7', amount: -25, type: 'returned', description: 'החזרה חלקית', date: '2023-12-28' },
+      { id: '8', amount: 400, type: 'given', description: 'בונוס חגים', date: '2023-12-25' },
+      { id: '9', amount: 100, type: 'given', description: 'תוספת רגילה', date: '2023-12-20' },
+      { id: '10', amount: -75, type: 'returned', description: 'תיקון יתרה', date: '2023-12-15' }
+    ];
+  };
+
   return (
-    <div className="space-y-6">
+    <>
+      <div className="space-y-6">
       {/* שורה ראשונה - קופת שוטף */}
       {level1Funds.map(fund => (
         <div key={fund.id} className="relative bg-gradient-to-br from-emerald-50 via-green-50 to-emerald-100 rounded-xl shadow-lg p-6 border-2 border-emerald-300 hover:shadow-xl transition-all duration-300 overflow-hidden">
@@ -193,7 +244,11 @@ const FundsGrid: React.FC<FundsGridProps> = ({ funds, currentDisplayMonth, onClo
               </div>
               <p className="text-lg font-bold text-gray-800 text-center">{formatCurrency(fund.amount)}</p>
             </div>
-            <div className="text-center p-4 bg-white/80 rounded-lg border-2 border-green-200 shadow-sm">
+            <div 
+              className="text-center p-4 bg-white/80 rounded-lg border-2 border-green-200 shadow-sm cursor-pointer hover:bg-green-50 hover:border-green-300 transition-all duration-200"
+              onClick={() => handleShowTransactions(fund)}
+              title="לחץ לצפייה בתנועות"
+            >
               <div className="flex items-center justify-center gap-2 mb-2">
                 <TrendingUp size={16} className="text-green-600" />
                 <p className="text-sm text-green-700 font-bold">ניתן בפועל</p>
@@ -281,7 +336,16 @@ const FundsGrid: React.FC<FundsGridProps> = ({ funds, currentDisplayMonth, onClo
           </div>
         ))}
       </div>
-    </div>
+      </div>
+
+      {/* Modal תנועות */}
+      <FundTransactionsModal
+        isOpen={showTransactionsModal}
+        onClose={() => setShowTransactionsModal(false)}
+        fundName={selectedFund?.name || ''}
+        transactions={selectedFund ? getMockTransactions(selectedFund.id) : []}
+      />
+    </>
   );
 };
 

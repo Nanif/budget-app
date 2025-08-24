@@ -133,9 +133,8 @@ const NotesSection: React.FC<NotesSectionProps> = ({
   }, [notes, activeNoteId]);
 
   return (
-    <div className="bg-white rounded-xl shadow-sm border-r-4 border-blue-400 hover:shadow-md transition-all duration-300">
-      {/* Header with tabs */}
-      <div className="border-b border-gray-200">
+    <div className="bg-white rounded-xl shadow-sm border-r-4 border-blue-400 hover:shadow-md transition-all duration-300 flex flex-col h-full">
+      
         <div className="flex items-center justify-between p-4 pb-2">
           <div className="flex items-center gap-2">
             <FileText size={18} className="text-blue-500" />
@@ -144,16 +143,22 @@ const NotesSection: React.FC<NotesSectionProps> = ({
         </div>
 
         {/* Tabs */}
-        <div className="flex items-center gap-1 px-4 pb-2 overflow-x-auto">
+        <div className="flex items-center gap-1 px-4 pb-2 flex-wrap">
           {notes.map(note => (
             <div
               key={note.id}
-              className={`group flex items-center gap-2 px-3 py-2 rounded-t-lg border-b-2 transition-all cursor-pointer min-w-0 ${
+              className={`group flex items-center gap-1 px-2 py-1 rounded-t-lg border-b-2 transition-all cursor-pointer min-w-0 relative ${
                 activeNoteId === note.id
                   ? 'bg-blue-50 border-blue-500 text-blue-700'
                   : 'bg-gray-50 border-transparent text-gray-600 hover:bg-gray-100'
               }`}
-              onClick={() => setActiveNoteId(note.id)}
+              onClick={(e) => {
+                // מניעת לחיצה אם לוחצים על כפתור המחיקה
+                if ((e.target as HTMLElement).closest('button')) {
+                  return;
+                }
+                setActiveNoteId(note.id);
+              }}
             >
               {editingTitleId === note.id ? (
                 <input
@@ -163,50 +168,45 @@ const NotesSection: React.FC<NotesSectionProps> = ({
                   onChange={(e) => setEditingTitle(e.target.value)}
                   onKeyDown={(e) => handleTitleKeyPress(e, note.id)}
                   onBlur={() => handleTitleSave(note.id)}
-                  className="bg-white border border-blue-300 rounded px-2 py-1 text-sm min-w-0 flex-1"
+                  className="bg-white border border-blue-300 rounded px-1 py-0.5 text-xs min-w-0 flex-1"
                   style={{ minWidth: '80px', maxWidth: '120px' }}
                 />
               ) : (
                 <>
-                  <span 
-                    className="text-sm font-medium truncate flex-1 min-w-0"
+                  <div 
+                    className="text-xs font-medium truncate flex-1 min-w-0 pr-1"
                     style={{ maxWidth: '100px' }}
                     title={note.title}
+                    onDoubleClick={(e) => {
+                      e.stopPropagation();
+                      handleTitleEdit(note.id, note.title);
+                    }}
                   >
                     {note.title}
-                  </span>
+                  </div>
                   
                   {/* Unsaved indicator */}
                   {hasUnsavedChanges[note.id] && (
-                    <div className="w-2 h-2 bg-orange-400 rounded-full flex-shrink-0" title="שינויים לא שמורים" />
+                    <div className="w-1.5 h-1.5 bg-orange-400 rounded-full flex-shrink-0 ml-1" title="שינויים לא שמורים" />
                   )}
                   
-                  {/* Tab actions */}
-                  <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0">
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleTitleEdit(note.id, note.title);
-                      }}
-                      className="text-gray-400 hover:text-blue-600 p-1 rounded"
-                      title="עריכת שם"
+                  {/* Delete button only */}
+                  {notes.length > 1 && (
+                    <div
+                      className="absolute -top-1 -left-1 opacity-0 group-hover:opacity-100 transition-opacity"
                     >
-                      <Edit3 size={12} />
-                    </button>
-                    
-                    {notes.length > 1 && (
                       <button
                         onClick={(e) => {
                           e.stopPropagation();
                           handleDeleteNote(note.id);
                         }}
-                        className="text-gray-400 hover:text-red-600 p-1 rounded"
+                        className="bg-red-500 text-white hover:bg-red-600 rounded-full p-0.5 shadow-sm transition-all"
                         title="מחיקת פתק"
                       >
-                        <X size={12} />
+                        <X size={8} />
                       </button>
-                    )}
-                  </div>
+                    </div>
+                  )}
                 </>
               )}
             </div>
@@ -214,48 +214,47 @@ const NotesSection: React.FC<NotesSectionProps> = ({
 
           {/* Add new note tab */}
           {isAddingNote ? (
-            <div className="flex items-center gap-2 px-3 py-2 bg-green-50 border-b-2 border-green-500 rounded-t-lg">
+            <div className="flex items-center gap-1 px-2 py-1 bg-green-50 border-b-2 border-green-500 rounded-t-lg">
               <input
                 type="text"
                 value={newNoteTitle}
                 onChange={(e) => setNewNoteTitle(e.target.value)}
                 onKeyDown={handleKeyPressNewNote}
                 placeholder="שם הפתק"
-                className="bg-white border border-green-300 rounded px-2 py-1 text-sm w-24"
+                className="bg-white border border-green-300 rounded px-1 py-0.5 text-xs w-16"
                 autoFocus
               />
               <button
                 onClick={handleAddNote}
                 disabled={!newNoteTitle.trim()}
-                className="text-green-600 hover:text-green-700 p-1 rounded disabled:text-gray-400"
+                className="text-green-600 hover:text-green-700 p-0.5 rounded disabled:text-gray-400 flex-shrink-0"
               >
-                <Save size={12} />
+                <Plus size={8} />
               </button>
               <button
                 onClick={() => {
                   setIsAddingNote(false);
                   setNewNoteTitle('');
                 }}
-                className="text-gray-400 hover:text-red-600 p-1 rounded"
+                className="text-gray-400 hover:text-red-600 p-0.5 rounded flex-shrink-0"
               >
-                <X size={12} />
+                <X size={8} />
               </button>
             </div>
           ) : (
             <button
               onClick={() => setIsAddingNote(true)}
-              className="flex items-center gap-1 px-3 py-2 text-gray-500 hover:text-blue-600 hover:bg-blue-50 rounded-t-lg transition-all"
+              className="flex items-center gap-1 px-2 py-1 text-gray-500 hover:text-blue-600 hover:bg-blue-50 rounded-t-lg transition-all flex-shrink-0"
               title="פתק חדש"
             >
-              <Plus size={14} />
-              <span className="text-sm">חדש</span>
+              <Plus size={12} />
+              <span className="text-xs">חדש</span>
             </button>
           )}
         </div>
-      </div>
 
       {/* Content area */}
-      <div className="p-4">
+      <div className="p-4 flex-1">
         {activeNote ? (
           <div className="space-y-3">
             {/* Save button */}
@@ -278,7 +277,7 @@ const NotesSection: React.FC<NotesSectionProps> = ({
               value={noteContents[activeNote.id] || ''}
               onChange={(e) => handleContentChange(activeNote.id, e.target.value)}
               placeholder="כתוב כאן את הפתק שלך... תוכל לכתוב חישובים, תזכירים או כל דבר אחר"
-              className="w-full h-64 p-3 border border-gray-200 rounded-lg resize-none focus:border-blue-400 focus:ring-2 focus:ring-blue-200 transition-all font-mono text-sm leading-relaxed"
+              className="w-full h-48 p-2 border border-gray-200 rounded-lg resize-none focus:border-blue-400 focus:ring-2 focus:ring-blue-200 transition-all font-mono text-sm leading-relaxed"
               style={{ 
                 fontFamily: 'ui-monospace, SFMono-Regular, "SF Mono", Consolas, "Liberation Mono", Menlo, monospace',
                 lineHeight: '1.6'
@@ -286,12 +285,6 @@ const NotesSection: React.FC<NotesSectionProps> = ({
             />
 
             {/* Footer info */}
-            <div className="flex justify-between items-center text-xs text-gray-500">
-              <span>נוצר: {new Date(activeNote.created_at).toLocaleDateString('he-IL')}</span>
-              {activeNote.updated_at !== activeNote.created_at && (
-                <span>עודכן: {new Date(activeNote.updated_at).toLocaleDateString('he-IL')}</span>
-              )}
-            </div>
           </div>
         ) : (
           <div className="text-center py-12 text-gray-400">

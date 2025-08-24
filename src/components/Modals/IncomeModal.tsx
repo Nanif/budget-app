@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { X, TrendingUp, Plus, DollarSign, FileText, Building, ChevronDown, Calendar } from 'lucide-react';
 import { CreateIncomeRequest, UpdateIncomeRequest } from '../../services/incomesService';
+import { formatNumber, cleanNumber, handleAmountChange } from '../../utils/formatUtils';
 
 interface IncomeModalProps {
   isOpen: boolean;
@@ -55,7 +56,7 @@ const IncomeModal: React.FC<IncomeModalProps> = ({
   useEffect(() => {
     if (editingIncome) {
       setName(editingIncome.name || '');
-      setAmount(formatNumber(editingIncome.amount?.toString() || ''));
+      setAmount(formatNumber(editingIncome.amount?.toString() || '0'));
       setDate(editingIncome.date || new Date().toISOString().split('T')[0]);
       setSource(editingIncome.source || '');
       setNote(editingIncome.note || '');
@@ -92,24 +93,8 @@ const IncomeModal: React.FC<IncomeModalProps> = ({
     }
   }, [source, savedSources]);
 
-  // עיצוב מספרים עם פסיקים
-  const formatNumber = (value: string) => {
-    const cleanValue = value.replace(/[^\d.]/g, '');
-    const parts = cleanValue.split('.');
-    const integerPart = parts[0];
-    const decimalPart = parts[1];
-    const formattedInteger = integerPart.replace(/\B(?=(\d{3})+(?!\d))/g, ',');
-    return decimalPart !== undefined ? `${formattedInteger}.${decimalPart}` : formattedInteger;
-  };
-
-  // הסרת פסיקים למספר נקי
-  const cleanNumber = (value: string) => {
-    return value.replace(/,/g, '');
-  };
-
   const handleAmountChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const formatted = formatNumber(e.target.value);
-    setAmount(formatted);
+    handleAmountChange(e.target.value, setAmount);
   };
 
   const handleSourceChange = (e: React.ChangeEvent<HTMLInputElement>) => {

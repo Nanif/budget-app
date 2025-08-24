@@ -115,7 +115,7 @@ const IncomeFilters: React.FC<IncomeFiltersProps> = ({
               value={filters.minAmount}
               onChange={(e) => onFilterChange('minAmount', e.target.value)}
               placeholder="מינימום"
-              className="px-2 py-1.5 border border-gray-300 rounded-md focus:ring-1 focus:ring-emerald-200 focus:border-emerald-400 text-sm w-20"
+              className="px-2 py-1.5 border border-gray-300 rounded-md focus:ring-1 focus:ring-emerald-200 focus:border-emerald-400 text-sm w-20 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
             />
 
             {/* סכום מקסימלי */}
@@ -124,7 +124,7 @@ const IncomeFilters: React.FC<IncomeFiltersProps> = ({
               value={filters.maxAmount}
               onChange={(e) => onFilterChange('maxAmount', e.target.value)}
               placeholder="מקסימום"
-              className="px-2 py-1.5 border border-gray-300 rounded-md focus:ring-1 focus:ring-emerald-200 focus:border-emerald-400 text-sm w-20"
+              className="px-2 py-1.5 border border-gray-300 rounded-md focus:ring-1 focus:ring-emerald-200 focus:border-emerald-400 text-sm w-20 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
             />
 
             {/* תאריך התחלה */}

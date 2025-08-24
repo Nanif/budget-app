@@ -87,7 +87,7 @@ const ExpenseFilters: React.FC<ExpenseFiltersProps> = ({
               value={filters.minAmount}
               onChange={(e) => onFilterChange('minAmount', e.target.value)}
               placeholder="מינימום"
-              className="px-2 py-1.5 border border-gray-300 rounded-md focus:ring-1 focus:ring-amber-200 focus:border-amber-400 text-sm w-20"
+              className="px-2 py-1.5 border border-gray-300 rounded-md focus:ring-1 focus:ring-amber-200 focus:border-amber-400 text-sm w-20 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
             />
 
             {/* סכום מקסימלי */}
@@ -96,7 +96,7 @@ const ExpenseFilters: React.FC<ExpenseFiltersProps> = ({
               value={filters.maxAmount}
               onChange={(e) => onFilterChange('maxAmount', e.target.value)}
               placeholder="מקסימום"
-              className="px-2 py-1.5 border border-gray-300 rounded-md focus:ring-1 focus:ring-amber-200 focus:border-amber-400 text-sm w-20"
+              className="px-2 py-1.5 border border-gray-300 rounded-md focus:ring-1 focus:ring-amber-200 focus:border-amber-400 text-sm w-20 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
             />
 
             {/* תאריך התחלה */}

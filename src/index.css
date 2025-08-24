@@ -312,6 +312,16 @@ textarea:focus {
   height: auto;
 }
 
+/* הסרת חיצים משדות מספרים */
+input[type="number"]::-webkit-outer-spin-button,
+input[type="number"]::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+input[type="number"] {
+  -moz-appearance: textfield;
+}
 /* תיקון לגריד עם גבהים אוטומטיים */
 .auto-height-grid {
   display: grid;

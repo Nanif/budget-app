@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { X, Heart, Plus } from 'lucide-react';
 import { CreateTitheRequest, UpdateTitheRequest } from '../../services/titheService';
+import { formatNumber, cleanNumber, handleAmountChange } from '../../utils/formatUtils';
 
 interface TitheModalProps {
   isOpen: boolean;
@@ -37,22 +38,8 @@ const TitheModal: React.FC<TitheModalProps> = ({
     }
   }, [editingTithe, isOpen]);
 
-  const formatNumber = (value: string) => {
-    const cleanValue = value.replace(/[^\d.]/g, '');
-    const parts = cleanValue.split('.');
-    const integerPart = parts[0];
-    const decimalPart = parts[1];
-    const formattedInteger = integerPart.replace(/\B(?=(\d{3})+(?!\d))/g, ',');
-    return decimalPart !== undefined ? `${formattedInteger}.${decimalPart}` : formattedInteger;
-  };
-
-  const cleanNumber = (value: string) => {
-    return value.replace(/,/g, '');
-  };
-
-  const handleAmountChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const formatted = formatNumber(e.target.value);
-    setAmount(formatted);
+  const handleAmountInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    handleAmountChange(e.target.value, setAmount);
   };
 
   const handleSubmit = (e: React.FormEvent) => {
