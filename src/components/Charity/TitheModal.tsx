@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { X, Heart, Plus } from 'lucide-react';
 import { CreateTitheRequest, UpdateTitheRequest } from '../../services/titheService';
-import { formatNumber, cleanNumber, handleAmountChange } from '../../utils/formatUtils';
 
 interface TitheModalProps {
   isOpen: boolean;
@@ -39,7 +38,7 @@ const TitheModal: React.FC<TitheModalProps> = ({
   }, [editingTithe, isOpen]);
 
   const handleAmountInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    handleAmountChange(e.target.value, setAmount);
+    setAmount(e.target.value);
   };
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -52,7 +51,7 @@ const TitheModal: React.FC<TitheModalProps> = ({
 
     const titheData = {
       description: description.trim(),
-      amount: Number(cleanNumber(amount)),
+      amount: Number(amount),
       date,
       note: note.trim() || undefined
     };
@@ -132,18 +131,13 @@ const TitheModal: React.FC<TitheModalProps> = ({
                 סכום *
               </label>
               <input
-                type="text"
+                type="number"
                 value={amount}
-                onChange={handleAmountChange}
+                onChange={handleAmountInputChange}
                 className="w-full p-3 border-2 border-pink-200 rounded-lg text-sm focus:border-pink-400 focus:ring-2 focus:ring-pink-200"
                 placeholder="0"
                 required
               />
-              {amount && (
-                <p className="text-xs text-gray-500 mt-1">
-                  סכום: {amount} ש"ח
-                </p>
-              )}
             </div>
 
             <div>

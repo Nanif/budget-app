@@ -1,7 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { X, TrendingUp, Plus, DollarSign, FileText, Building, ChevronDown, Calendar } from 'lucide-react';
 import { CreateIncomeRequest, UpdateIncomeRequest } from '../../services/incomesService';
-import { formatNumber, cleanNumber, handleAmountChange } from '../../utils/formatUtils';
 
 interface IncomeModalProps {
   isOpen: boolean;
@@ -94,7 +93,7 @@ const IncomeModal: React.FC<IncomeModalProps> = ({
   }, [source, savedSources]);
 
   const handleAmountChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    handleAmountChange(e.target.value, setAmount);
+    setAmount(e.target.value);
   };
 
   const handleSourceChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -129,7 +128,7 @@ const IncomeModal: React.FC<IncomeModalProps> = ({
 
       const incomeData: CreateIncomeRequest = {
         name: name.trim(),
-        amount: Number(cleanNumber(amount)),
+        amount: Number(amount),
         date,
         source: source.trim() || undefined,
         note: note.trim() || undefined
@@ -222,17 +221,13 @@ const IncomeModal: React.FC<IncomeModalProps> = ({
               </label>
               <input
                 type="text"
+                type="number"
                 value={amount}
                 onChange={handleAmountChange}
                 className="w-full p-3 border-2 border-emerald-200 rounded-lg text-sm focus:border-emerald-400 focus:ring-2 focus:ring-emerald-200"
                 placeholder="0"
                 required
               />
-              {amount && (
-                <p className="text-xs text-gray-500 mt-1">
-                  סכום: {amount} ש"ח
-                </p>
-              )}
             </div>
 
             <div className="relative">

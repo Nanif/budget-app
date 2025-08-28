@@ -3,7 +3,6 @@ import { X, TrendingDown, Plus, DollarSign, FileText, Tag, Calendar } from 'luci
 
 import {  CreateExpenseRequest, UpdateExpenseRequest } from '../../services';
 import { GetCategoryRequest } from '../../services/categoriesService';
-import { formatNumber, cleanNumber, handleAmountChange } from '../../utils/formatUtils';
 
 interface ExpenseModalProps {
   isOpen: boolean;
@@ -35,7 +34,7 @@ const ExpenseModal: React.FC<ExpenseModalProps> = ({
   React.useEffect(() => {
     if (editingExpense) {
       setName(editingExpense.name);
-      setAmount(formatNumber(editingExpense.amount.toString()));
+      setAmount(editingExpense.amount.toString());
       setSelectedCategory(editingExpense.category_id);
       setSelectedFund(editingExpense.fund_id || '');
       setDate(editingExpense.date);
@@ -53,7 +52,7 @@ const ExpenseModal: React.FC<ExpenseModalProps> = ({
   }, [editingExpense, isOpen]);
 
   const handleAmountInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    handleAmountChange(e.target.value, setAmount);
+    setAmount(e.target.value);
   };
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -64,7 +63,7 @@ const ExpenseModal: React.FC<ExpenseModalProps> = ({
       // עדכון הוצאה קיימת
       const updateExpenseData: UpdateExpenseRequest = {
         name: name.trim(),
-        amount: Number(cleanNumber(amount)),
+        amount: Number(amount),
         category_id: selectedCategory,
         fund_id: selectedFund,
         date,
@@ -77,7 +76,7 @@ const ExpenseModal: React.FC<ExpenseModalProps> = ({
       // יצירת הוצאה חדשה
       const createExpenseData: CreateExpenseRequest = {
         name: name.trim(),
-        amount: Number(cleanNumber(amount)),
+        amount: Number(amount),
         category_id: selectedCategory,
         fund_id: selectedFund,
         date,
@@ -154,18 +153,13 @@ const ExpenseModal: React.FC<ExpenseModalProps> = ({
                 סכום *
               </label>
               <input
-                type="text"
+                type="number"
                 value={amount}
-                onChange={handleAmountChange}
+                onChange={handleAmountInputChange}
                 className="w-full p-3 border-2 border-amber-200 rounded-lg text-sm focus:border-amber-400 focus:ring-2 focus:ring-amber-200"
                 placeholder="0"
                 required
               />
-              {amount && (
-                <p className="text-xs text-gray-500 mt-1">
-                  סכום: {amount} ש"ח
-                </p>
-              )}
             </div>
 
             <div>

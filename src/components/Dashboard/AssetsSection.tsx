@@ -3,7 +3,6 @@ import React, { useState } from 'react';
 import { Plus, TrendingUp, TrendingDown, PieChart, History } from 'lucide-react';
 import { AssetSnapshot } from '../../types';
 import AssetsHistoryModal from './AssetsHistoryModal';
-import { formatNumber, cleanNumber, getNumericValue } from '../../utils/formatUtils';
 
 interface AssetValue {
   amount: number;
@@ -148,7 +147,7 @@ const AssetsSection: React.FC<AssetsSectionProps> = ({ snapshots, onAddSnapshot 
                       setAssets((prev) => ({
                         ...prev,
                         [type.id]: {
-                          amount: formatNumber(e.target.value),
+                          amount: e.target.value,
                         },
                       }))
                     }

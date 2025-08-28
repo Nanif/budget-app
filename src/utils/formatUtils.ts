@@ -7,11 +7,23 @@
  */
 export function formatNumber(value: string | number | null | undefined): string {
   // טיפול בערכים null או undefined
-  if (value === null || value === undefined) {
+  if (value === null || value === undefined || value === '') {
     return '';
   }
   
-  const stringValue = typeof value === 'number' ? value.toString() : value;
+  // המרה בטוחה למחרוזת עם בדיקה נוספת
+  let stringValue: string;
+  try {
+    stringValue = String(value);
+    // בדיקה נוספת שהערך הוא באמת מחרוזת
+    if (typeof stringValue !== 'string') {
+      return '';
+    }
+  } catch (error) {
+    return '';
+  }
+  
+  // הסרת כל התווים שאינם ספרות או נקודה עשרונית
   const cleanValue = stringValue.replace(/[^\d.]/g, '');
   
   if (!cleanValue) return '';
@@ -49,9 +61,15 @@ export function formatCurrency(amount: number, currency: string = 'ILS'): string
  * פונקציה לטיפול בשינוי ערך בשדה סכום
  */
 export function handleAmountChange(
-  value: string | null | undefined,
+  value: string,
   onChange: (formattedValue: string) => void
 ): void {
+  // בדיקה שהערך קיים לפני עיצוב
+  if (value === null || value === undefined) {
+    onChange('');
+    return;
+  }
+  
   const formatted = formatNumber(value);
   onChange(formatted);
 }
