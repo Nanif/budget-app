@@ -9,7 +9,8 @@ import {
   ChevronRight,
   ChevronLeft,
   Calculator,
-  FileSpreadsheet
+  FileSpreadsheet,
+  BarChart3
 } from 'lucide-react';
 import { ENV } from '../../config/env';
 import { NavLink, useLocation } from 'react-router-dom';
@@ -22,6 +23,7 @@ interface SidebarProps {
 const Sidebar: React.FC<SidebarProps> = ({ isCollapsed, onToggleCollapse }) => {
   const location = useLocation();
   const menuItems = [
+    
     {
       id: 'dashboard',
       name: 'דשבורד',
@@ -52,11 +54,17 @@ const Sidebar: React.FC<SidebarProps> = ({ isCollapsed, onToggleCollapse }) => {
       icon: Wallet,
       description: 'ניהול קופות ותקציבים'
     },
+    // {
+    //   id: 'excel',
+    //   name: 'Excel',
+    //   icon: FileSpreadsheet,
+    //   description: 'גיליון אלקטרוני לחישובים'
+    // },
     {
-      id: 'excel',
-      name: 'Excel',
-      icon: FileSpreadsheet,
-      description: 'גיליון אלקטרוני לחישובים'
+      id: 'financial-report',
+      name: 'Financial Report',
+      icon: BarChart3,
+      description: 'Summary of income and expenses'
     },
     {
       id: 'settings',

@@ -1,8 +1,9 @@
 // AssetsSection.tsx
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Plus, TrendingUp, TrendingDown, PieChart, History } from 'lucide-react';
 import { AssetSnapshot } from '../../types';
 import AssetsHistoryModal from './AssetsHistoryModal';
+import { assetsService, AssetDefinition } from '../../services/assetsService';
 
 interface AssetValue {
   amount: number;
@@ -21,6 +22,8 @@ const AssetsSection: React.FC<AssetsSectionProps> = ({ snapshots, onAddSnapshot 
   const [isAdding, setIsAdding] = useState(false);
   const [note, setNote] = useState('');
   const [showHistoryModal, setShowHistoryModal] = useState(false);
+  const [assetTypeList, setAssetTypeList] = useState<Array<{ id: string; name: string }>>([]);
+  const [liabilityTypeList, setLiabilityTypeList] = useState<Array<{ id: string; name: string }>>([]);
 
   const assetTypes = [
     { id: 'compensation', name: 'פיצויים' },
@@ -35,16 +38,54 @@ const AssetsSection: React.FC<AssetsSectionProps> = ({ snapshots, onAddSnapshot 
     { id: 'mortgage', name: 'משכנתא' },
   ];
 
-  const [assets, setAssets] = useState<Record<string, { amount: string }>>(
-    assetTypes.reduce((acc, type) => ({ ...acc, [type.id]: { amount: '' } }), {})
-  );
+  const [assets, setAssets] = useState<Record<string, { amount: string }>>({});
 
-  const [liabilities, setLiabilities] = useState<Record<string, { amount: string }>>(
-    liabilityTypes.reduce((acc, type) => ({ ...acc, [type.id]: { amount: '' } }), {})
-  );
+  const [liabilities, setLiabilities] = useState<Record<string, { amount: string }>>({});
 
   const latestSnapshot = snapshots[0];
   const previousSnapshot = snapshots[1];
+
+  // Load asset/liability types from server and init input maps
+  useEffect(() => {
+    const toList = (defs: AssetDefinition[]) => defs
+      .filter(d => d.is_active)
+      .map(d => ({ id: d.name, name: d.name }));
+
+    const initMap = (list: Array<{ id: string; name: string }>) =>
+      list.reduce((acc, t) => ({ ...acc, [t.id]: { amount: '' } }), {} as Record<string, { amount: string }>);
+
+    const load = async () => {
+      try {
+        const [assetDefs, liabilityDefs] = await Promise.all([
+          assetsService.getAssetsCatalog('asset'),
+          assetsService.getAssetsCatalog('liability')
+        ]);
+        const a = toList(assetDefs);
+        const l = toList(liabilityDefs);
+        setAssetTypeList(a);
+        setLiabilityTypeList(l);
+        setAssets(initMap(a));
+        setLiabilities(initMap(l));
+      } catch {
+        const a = [
+          { id: 'compensation', name: 'פיצויים' },
+          { id: 'pension_naomi', name: 'ק. השתלמות נעמי' },
+          { id: 'pension_yossi', name: 'ק. השתלמות יוסי' },
+          { id: 'savings_children', name: 'חיסכון לכל ילד' },
+        ];
+        const l = [
+          { id: 'anchor', name: 'הלוואת עוגן' },
+          { id: 'gmach_glik', name: 'הלוואת גליק' },
+          { id: 'mortgage', name: 'משכנתא' },
+        ];
+        setAssetTypeList(a);
+        setLiabilityTypeList(l);
+        setAssets(initMap(a));
+        setLiabilities(initMap(l));
+      }
+    };
+    load();
+  }, []);
 
   const formatCurrency = (amount: number) =>
     new Intl.NumberFormat('he-IL', {
@@ -85,8 +126,8 @@ const AssetsSection: React.FC<AssetsSectionProps> = ({ snapshots, onAddSnapshot 
     onAddSnapshot(parsedAssets, parsedLiabilities, note);
 
     // איפוס הטופס רק אחרי שמירה מוצלחת
-    setAssets(assetTypes.reduce((acc, type) => ({ ...acc, [type.id]: { amount: '' } }), {}));
-    setLiabilities(liabilityTypes.reduce((acc, type) => ({ ...acc, [type.id]: { amount: '' } }), {}));
+    setAssets(assetTypeList.reduce((acc, type) => ({ ...acc, [type.id]: { amount: '' } }), {} as Record<string, { amount: string }>));
+    setLiabilities(liabilityTypeList.reduce((acc, type) => ({ ...acc, [type.id]: { amount: '' } }), {} as Record<string, { amount: string }>));
     setNote('');
     setIsAdding(false);
     
@@ -136,13 +177,13 @@ const AssetsSection: React.FC<AssetsSectionProps> = ({ snapshots, onAddSnapshot 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div>
               <h4 className="text-emerald-700 font-bold mb-2">נכסים</h4>
-              {assetTypes.map((type) => (
+              {assetTypeList.map((type) => (
                 <div key={type.id} className="mb-2">
                   <label className="block text-sm font-semibold text-gray-600">{type.name}</label>
                   <input
                     type="number"
                     placeholder="יתרה"
-                    value={assets[type.id].amount}
+                    value={(assets[type.id]?.amount) ?? ''}
                     onChange={(e) =>
                       setAssets((prev) => ({
                         ...prev,
@@ -158,13 +199,13 @@ const AssetsSection: React.FC<AssetsSectionProps> = ({ snapshots, onAddSnapshot 
             </div>
             <div>
               <h4 className="text-red-700 font-bold mb-2">התחייבויות</h4>
-              {liabilityTypes.map((type) => (
+              {liabilityTypeList.map((type) => (
                 <div key={type.id} className="mb-2">
                   <label className="block text-sm font-semibold text-gray-600">{type.name}</label>
                   <input
                     type="number"
                     placeholder="יתרה"
-                    value={liabilities[type.id].amount}
+                    value={(liabilities[type.id]?.amount) ?? ''}
                     onChange={(e) =>
                       setLiabilities((prev) => ({
                         ...prev,

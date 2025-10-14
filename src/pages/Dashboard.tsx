@@ -83,7 +83,7 @@ const Dashboard: React.FC = () => {
           titheData,
           debtsData,
           tasksData,
-          assetsData,
+          // assetsData,
           categoriesData,
           tithePercentageData
         ] = await Promise.all([
@@ -93,7 +93,7 @@ const Dashboard: React.FC = () => {
           titheService.getAllTithes(),
           debtsService.getAllDebts(),
           tasksService.getAllTasks(),
-          assetsService.getAllAssetSnapshots(),
+          // systemSettingsService.getSettingByKey('tithe_percentage'),
           categoriesService.getAllCategories(),
           systemSettingsService.getSettingByKey('tithe_percentage')
         ]);
@@ -105,10 +105,10 @@ const Dashboard: React.FC = () => {
         setTitheGiven(titheData);
         setDebts(debtsData);
         setTasks(tasksData);
-        setAssetSnapshots(assetsData);
+        // setAssetSnapshots(assetsData);
         setCategories(categoriesData);
-        const tithePercentage = parseInt(tithePercentageData?.setting_value || '0');
-        setTithePercentage(tithePercentage);
+       const tithePercentage = parseInt(tithePercentageData?.setting_value || '12');
+        setTithePercentage(12);
   
         // טעינת פתקים מה-DB
         const notesData = await notesService.getAllNotes();
@@ -629,10 +629,10 @@ const Dashboard: React.FC = () => {
         {/* שורה שלישית: נכסים */}
         <div className="dashboard-section">
           <div className="flex justify-center">
-            <AssetsSection
+            {/* <AssetsSection
               snapshots={assetSnapshots}
               onAddSnapshot={handleAddAssetSnapshot}
-            />
+            /> */}
           </div>
         </div>
 
