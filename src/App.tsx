@@ -7,6 +7,7 @@ import Charity from './pages/Charity';
 import Funds from './pages/Funds';
 // import Excel from './pages/Excel';
 import Settings from './pages/Settings';
+// import FinancialReport from './pages/FinancialReport';
 import { NotificationProvider } from './components/Notifications/NotificationSystem';
 import './index.css';
 
@@ -45,6 +46,7 @@ function App() {
             <Route path="/funds" element={<Funds />} />
             {/* <Route path="/excel" element={<Excel />} /> */}
             <Route path="/settings" element={<Settings />} />
+            {/* <Route path="/financial-report" element={<FinancialReport />} /> */}
           </Routes>
         </Layout>
       </BrowserRouter>

@@ -2,6 +2,14 @@ import { AssetSnapshot } from '../types';
 import { ENV } from '../config/env';
 import { apiClient } from './apiClient';
 
+export interface AssetDefinition {
+  id: string;
+  name: string;
+  type: string;
+  category: 'asset' | 'liability';
+  is_active: boolean;
+}
+
 export interface CreateAssetSnapshotRequest {
   assets: Record<string, number>;
   liabilities: Record<string, number>;
@@ -89,6 +97,13 @@ class AssetsService {
   // DELETE /assets/:id - מחיקת תמונת מצב
   async deleteAssetSnapshot(id: string): Promise<void> {
     await apiClient.delete<void>(`/assets/${id}`);
+  }
+
+  // GET /assets/catalog?category=asset|liability - list available asset definitions for user
+  async getAssetsCatalog(category?: 'asset' | 'liability'): Promise<AssetDefinition[]> {
+    const qs = category ? `?category=${category}` : '';
+    const response = await apiClient.get<AssetDefinition[]>(`/assets/catalog${qs}`);
+    return response.data;
   }
 }
 
