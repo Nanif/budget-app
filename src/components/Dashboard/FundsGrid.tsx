@@ -1,8 +1,10 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { GetFundRequest } from '../../services/fundsService';
-import { PlusCircle, Calendar, Wallet, TrendingUp, Gift, Coins, DollarSign, Target, Check, X } from 'lucide-react';
+import { Wallet, TrendingUp, Gift, Coins, DollarSign, Target, Calendar, PlusCircle, Check, X } from 'lucide-react';
 import ColorBadge from '../UI/ColorBadge';
 import FundTransactionsModal from './FundTransactionsModal';
+import { cashEnvelopeTransactionsService, CashEnvelopeTransaction } from '../../services/cashEnvelopeTransactionsService';
+import { useBudgetYearStore } from '../../store/budgetYearStore';
 
 interface FundsGridProps {
   funds: GetFundRequest[];
@@ -27,6 +29,33 @@ const FundsGrid: React.FC<FundsGridProps> = ({ funds, currentDisplayMonth, onClo
   const [remainingAmount, setRemainingAmount] = useState('');
   const [showTransactionsModal, setShowTransactionsModal] = useState(false);
   const [selectedFund, setSelectedFund] = useState<GetFundRequest | null>(null);
+  const [transactions, setTransactions] = useState<FundTransaction[]>([]);
+  const selectedBudgetYearId = useBudgetYearStore(state => state.selectedBudgetYearId);
+  const [cashTotalsByFund, setCashTotalsByFund] = useState<Record<string, number>>({});
+
+  const refreshCashTotals = async () => {
+    try {
+      const list = await cashEnvelopeTransactionsService.list({
+        month: currentDisplayMonth || getCurrentMonth(),
+        budgetYearId: selectedBudgetYearId || undefined,
+      });
+      const totals: Record<string, number> = {};
+      for (const t of list) {
+        const amt = Number(t.amount || 0);
+        totals[t.fund_id] = (totals[t.fund_id] || 0) + amt;
+      }
+      setCashTotalsByFund(totals);
+    } catch (e) {
+      console.error('Failed to load cash totals:', e);
+      setCashTotalsByFund({});
+    }
+  };
+
+  useEffect(() => {
+    // Only relevant for cash-managed (level 1) funds
+    refreshCashTotals();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedBudgetYearId, currentDisplayMonth]);
 
   const level1Funds = funds.filter(fund => fund.level === 1);
   const level2Funds = funds.filter(fund => fund.level === 2);
@@ -50,38 +79,13 @@ const FundsGrid: React.FC<FundsGridProps> = ({ funds, currentDisplayMonth, onClo
     return currentDate.getMonth() + 1;
   };
 
-  const getFundIcon = (fundName: string) => {
-    if (fundName.includes('שוטף')) return <Wallet size={20} className="text-emerald-600" />;
-    if (fundName.includes('שנתי')) return <Target size={18} className="text-indigo-600" />;
-    if (fundName.includes('מורחב')) return <Target size={18} className="text-indigo-600" />;
-    if (fundName.includes('בונוס')) return <Gift size={18} className="text-orange-600" />;
-    if (fundName.includes('עודפים')) return <Coins size={18} className="text-yellow-600" />;
-    return <DollarSign size={18} className="text-gray-600" />;
-  };
-
+  
   const handleEnvelopeSubmit = () => {
     if (envelopeAmount && Number(envelopeAmount) > 0) {
       const amount = Number(envelopeAmount);
-      
-      // עדכון מקומי של הקופה
-      const updatedFunds = funds.map(fund => {
-        if (fund.level === 1) { // קופת שוטף
-          return {
-            ...fund,
-            amount_given: (fund.amount_given || 0) + amount
-          };
-        }
-        return fund;
-      });
-      
-      // קריאה לפונקציה מהרכיב האב
-      onAddMoneyToEnvelope(amount);
-      
+      // onAddMoneyToEnvelope(amount);
       setEnvelopeAmount('');
       setShowEnvelopeInput(false);
-      
-      // הודעת הצלחה
-      console.log(`✅ נוסף ${amount} ש"ח למעטפה`);
     }
   };
 
@@ -92,7 +96,7 @@ const FundsGrid: React.FC<FundsGridProps> = ({ funds, currentDisplayMonth, onClo
 
   const handleClosureSubmit = () => {
     if (remainingAmount && Number(remainingAmount) >= 0) {
-      onCloseDailyFund(Number(remainingAmount));
+  //    onCloseDailyFund(Number(remainingAmount));
       setRemainingAmount('');
       setShowClosureInput(false);
     }
@@ -119,9 +123,56 @@ const FundsGrid: React.FC<FundsGridProps> = ({ funds, currentDisplayMonth, onClo
     }
   };
 
-  const handleShowTransactions = (fund: GetFundRequest) => {
+
+  const loadTransactionsForFund = async (fund: GetFundRequest) => {
+    let tx: FundTransaction[] = [];
+    try {
+      if (fund.level === 1) {
+        const serverTx: CashEnvelopeTransaction[] = await cashEnvelopeTransactionsService.list({
+          month: currentDisplayMonth || getCurrentMonth(),
+          budgetYearId: selectedBudgetYearId || undefined,
+        });
+        tx = (serverTx || [])
+          .filter(t => t.fund_id === fund.id)
+          .map(t => ({
+          id: t.id,
+          amount: t.amount,
+          type: t.amount >= 0 ? 'returned' : 'given',
+          description: t.description || (t.amount >= 0 ? 'הפקדה' : 'משיכה'),
+          date: t.date,
+        }));
+      } else {
+        tx = getMockTransactions(fund.id);
+      }
+    } catch (e) {
+      console.error('Failed to load cash envelope transactions:', e);
+      tx = getMockTransactions(fund.id);
+    }
+    setTransactions(tx);
+  };
+
+  const handleShowTransactions = async (fund: GetFundRequest) => {
     setSelectedFund(fund);
+    await loadTransactionsForFund(fund);
     setShowTransactionsModal(true);
+  };
+
+  const handleCreateTransaction = async (input: { amount: number; date: string; description?: string; type: 'deposit' | 'withdrawal' }) => {
+    if (!selectedFund) return;
+    try {
+      const signedAmount = input.type === 'withdrawal' ? -Math.abs(input.amount) : Math.abs(input.amount);
+      await cashEnvelopeTransactionsService.create({
+        fund_id: selectedFund.id,
+        date: input.date,
+        amount: signedAmount,
+        description: input.description,
+        budget_year_id: selectedBudgetYearId || undefined,
+      });
+      await loadTransactionsForFund(selectedFund);
+      await refreshCashTotals();
+    } catch (e) {
+      console.error('Failed to create cash transaction:', e);
+    }
   };
 
   // Mock data for transactions - בעתיד יבוא מה-API
@@ -153,7 +204,7 @@ const FundsGrid: React.FC<FundsGridProps> = ({ funds, currentDisplayMonth, onClo
           
           <div className="flex justify-between items-start mb-6 relative z-10">
             <div className="flex items-center gap-3">
-              {getFundIcon(fund.name)}
+              {/* {getFundIcon(fund.name)} */}
               <div>
                 <h3 className="text-lg font-bold text-emerald-800">{fund.name}</h3>
                 <p className="text-sm text-emerald-600 font-medium">
@@ -253,14 +304,14 @@ const FundsGrid: React.FC<FundsGridProps> = ({ funds, currentDisplayMonth, onClo
                 <TrendingUp size={16} className="text-green-600" />
                 <p className="text-sm text-green-700 font-bold">ניתן בפועל</p>
               </div>
-              <p className="text-lg font-bold text-green-600 text-center">{formatCurrency(fund.amount_given || 0)}</p>
+              <p className="text-lg font-bold text-green-600 text-center">{formatCurrency(fund.level === 1 ? (cashTotalsByFund[fund.id] || 0) : 0)}</p>
             </div>
             <div className="text-center p-4 bg-white/80 rounded-lg border-2 border-amber-200 shadow-sm">
               <div className="flex items-center justify-center gap-2 mb-2">
                 <Coins size={16} className="text-amber-600" />
                 <p className="text-sm text-amber-700 font-bold">נותר לתת</p>
               </div>
-              <p className="text-lg font-bold text-amber-600 text-center">{formatCurrency(fund.amount - (fund.amount_given || 0))}</p>
+              <p className="text-lg font-bold text-amber-600 text-center">{formatCurrency(fund.amount - (fund.level === 1 ? (cashTotalsByFund[fund.id] || 0) :  0))}</p>
             </div>
           </div>
         </div>
@@ -271,7 +322,7 @@ const FundsGrid: React.FC<FundsGridProps> = ({ funds, currentDisplayMonth, onClo
         {level2Funds.map(fund => (
           <div key={fund.id} className="bg-white rounded-xl shadow-lg p-6 border-2 border-gray-200 hover:shadow-xl hover:border-indigo-300 transition-all duration-300">
             <div className="flex items-center gap-3 mb-6 pb-3 border-b border-gray-100">
-              {getFundIcon(fund.name)}
+              {/* {getFundIcon(fund.name)} */}
               <div className="flex-1">
                 <h3 className="text-lg font-bold text-gray-800">{fund.name}</h3>
                 {fund.color_class && (
@@ -319,7 +370,7 @@ const FundsGrid: React.FC<FundsGridProps> = ({ funds, currentDisplayMonth, onClo
         {level3Funds.map(fund => (
           <div key={fund.id} className="bg-white rounded-xl shadow-lg p-6 border-2 border-gray-200 hover:shadow-xl hover:border-yellow-300 transition-all duration-300">
             <div className="flex items-center gap-3 mb-3">
-              {getFundIcon(fund.name)}
+              {/* {getFundIcon(fund.name)} */}
               <div className="flex-1">
                 <h3 className="text-lg font-bold text-gray-800">{fund.name}</h3>
                 {fund.color_class && (
@@ -343,10 +394,17 @@ const FundsGrid: React.FC<FundsGridProps> = ({ funds, currentDisplayMonth, onClo
         isOpen={showTransactionsModal}
         onClose={() => setShowTransactionsModal(false)}
         fundName={selectedFund?.name || ''}
-        transactions={selectedFund ? getMockTransactions(selectedFund.id) : []}
+        transactions={transactions}
+        onCreate={selectedFund && selectedFund.level === 1 ? handleCreateTransaction : undefined}
       />
     </>
   );
 };
 
 export default FundsGrid;
+
+
+
+
+
+

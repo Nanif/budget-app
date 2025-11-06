@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo, useState } from 'react';
 import { X, TrendingUp, TrendingDown, Calendar } from 'lucide-react';
 
 interface FundTransaction {
@@ -14,13 +14,15 @@ interface FundTransactionsModalProps {
   onClose: () => void;
   fundName: string;
   transactions: FundTransaction[];
+  onCreate?: (input: { amount: number; date: string; description?: string; type: 'deposit' | 'withdrawal' }) => Promise<void> | void;
 }
 
 const FundTransactionsModal: React.FC<FundTransactionsModalProps> = ({
   isOpen,
   onClose,
   fundName,
-  transactions
+  transactions,
+  onCreate
 }) => {
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('he-IL', {
@@ -33,6 +35,36 @@ const FundTransactionsModal: React.FC<FundTransactionsModalProps> = ({
 
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString('he-IL');
+  };
+
+  const todayStr = useMemo(() => new Date().toISOString().slice(0, 10), []);
+
+  const [amount, setAmount] = useState<string>('');
+  const [date, setDate] = useState<string>(todayStr);
+  const [description, setDescription] = useState<string>('');
+  const [type, setType] = useState<'deposit' | 'withdrawal'>('deposit');
+  const [submitting, setSubmitting] = useState(false);
+
+  const canSubmit = onCreate && amount.trim() !== '' && !isNaN(Number(amount));
+
+  const handleSubmit = async () => {
+    if (!onCreate || !canSubmit) return;
+    setSubmitting(true);
+    try {
+      await onCreate({
+        amount: Number(amount),
+        date,
+        description: description?.trim() || undefined,
+        type,
+      });
+      setAmount('');
+      setDescription('');
+      setType('deposit');
+    } catch (e) {
+      console.error('Failed to create transaction', e);
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   if (!isOpen) return null;
@@ -60,7 +92,70 @@ const FundTransactionsModal: React.FC<FundTransactionsModalProps> = ({
         </div>
 
         {/* תוכן */}
-        <div className="p-6">
+        {onCreate && (
+          <div className="px-6 pt-6">
+            <div className="bg-gray-50 border border-gray-200 rounded-lg p-4 mb-4">
+              <p className="text-sm font-medium text-gray-700 mb-3">הוספת טרנזקציה</p>
+              <div className="grid grid-cols-2 gap-3 mb-3">
+                <div className="col-span-2 flex gap-2">
+                  <button
+                    className={`px-3 py-1 rounded text-sm border ${type === 'deposit' ? 'bg-green-100 text-green-700 border-green-200' : 'bg-white text-gray-700 border-gray-200'}`}
+                    onClick={() => setType('deposit')}
+                    disabled={submitting}
+                  >הפקדה</button>
+                  <button
+                    className={`px-3 py-1 rounded text-sm border ${type === 'withdrawal' ? 'bg-red-100 text-red-700 border-red-200' : 'bg-white text-gray-700 border-gray-200'}`}
+                    onClick={() => setType('withdrawal')}
+                    disabled={submitting}
+                  >משיכה</button>
+                </div>
+                <div>
+                  <label className="block text-xs text-gray-600 mb-1">תאריך</label>
+                  <input
+                    type="date"
+                    value={date}
+                    onChange={(e) => setDate(e.target.value)}
+                    className="w-full border rounded px-2 py-1 text-sm"
+                    disabled={submitting}
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs text-gray-600 mb-1">סכום</label>
+                  <input
+                    type="number"
+                    inputMode="decimal"
+                    value={amount}
+                    onChange={(e) => setAmount(e.target.value)}
+                    className="w-full border rounded px-2 py-1 text-sm"
+                    placeholder="0"
+                    disabled={submitting}
+                  />
+                </div>
+                <div className="col-span-2">
+                  <label className="block text-xs text-gray-600 mb-1">תיאור (לא חובה)</label>
+                  <input
+                    type="text"
+                    value={description}
+                    onChange={(e) => setDescription(e.target.value)}
+                    className="w-full border rounded px-2 py-1 text-sm"
+                    placeholder={type === 'deposit' ? 'הפקדה למעטפה' : 'משיכה מהמעטפה'}
+                    disabled={submitting}
+                  />
+                </div>
+              </div>
+              <div className="flex justify-end">
+                <button
+                  onClick={handleSubmit}
+                  disabled={!canSubmit || submitting}
+                  className={`px-4 py-2 rounded text-sm font-medium text-white ${submitting ? 'bg-gray-400' : 'bg-emerald-600 hover:bg-emerald-700'}`}
+                >{submitting ? 'שומר…' : 'שמור טרנזקציה'}</button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* רשימת טרנזקציות */}
+        <div className="px-6 pb-6">
           <div className="space-y-3 max-h-96 overflow-y-auto">
             {transactions.length > 0 ? (
               transactions.map((transaction, index) => (
