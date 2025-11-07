@@ -21,6 +21,7 @@ export interface CreateCashEnvelopeTxPayload {
   amount: number;
   description?: string;
   budget_year_id?: string;
+  month?: number; // 1-12 optional: allow creating for a specific month
 }
 
 export interface ListCashEnvelopeTxQuery {
@@ -49,4 +50,3 @@ class CashEnvelopeTransactionsService {
 }
 
 export const cashEnvelopeTransactionsService = new CashEnvelopeTransactionsService();
-

@@ -14,7 +14,8 @@ interface FundTransactionsModalProps {
   onClose: () => void;
   fundName: string;
   transactions: FundTransaction[];
-  onCreate?: (input: { amount: number; date: string; description?: string; type: 'deposit' | 'withdrawal' }) => Promise<void> | void;
+  onCreate?: (input: { amount: number; date: string; description?: string; type: 'deposit' | 'withdrawal'; month?: number }) => Promise<void> | void;
+  selectedMonth?: number;
 }
 
 const FundTransactionsModal: React.FC<FundTransactionsModalProps> = ({
@@ -22,7 +23,8 @@ const FundTransactionsModal: React.FC<FundTransactionsModalProps> = ({
   onClose,
   fundName,
   transactions,
-  onCreate
+  onCreate,
+  selectedMonth
 }) => {
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('he-IL', {
@@ -56,6 +58,7 @@ const FundTransactionsModal: React.FC<FundTransactionsModalProps> = ({
         date,
         description: description?.trim() || undefined,
         type,
+        month: selectedMonth,
       });
       setAmount('');
       setDescription('');

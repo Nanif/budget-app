@@ -141,7 +141,7 @@ const Dashboard: React.FC = () => {
 
     const loadFunds = async () => {
       try {
-        const fundsData = await fundsService.getAllFunds(selectedBudgetYear.id);
+        const fundsData = await fundsService.getAllFunds(selectedBudgetYear.id, currentDisplayMonth);
         if (isMounted) {
           setFunds(fundsData);
         }
@@ -158,7 +158,7 @@ const Dashboard: React.FC = () => {
     return () => {
       isMounted = false; // cleanup
     };
-  }, [selectedBudgetYear?.id, dataLoaded]);
+  }, [selectedBudgetYear?.id, dataLoaded, currentDisplayMonth]);
 
   // Save selected budget year to localStorage - עם מניעת עדכונים מיותרים
   useEffect(() => {
