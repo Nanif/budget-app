@@ -30,11 +30,11 @@ const BudgetChart: React.FC<BudgetChartProps> = ({
       value: totalIncome,
       type: 'income'
     },
-    {
-      name: 'הוצאות', 
-      value: totalExpenses,
-      type: 'expense'
-    }
+    // {
+    //   name: 'הוצאות', 
+    //   value: totalExpenses,
+    //   type: 'expense'
+    // }
   ];
 
   // חישוב סכום חודשי דינמי לפי מספר החודשים בשנת התקציב
@@ -71,7 +71,7 @@ const BudgetChart: React.FC<BudgetChartProps> = ({
     <div className="bg-white rounded-2xl shadow-lg p-8 border border-gray-200 h-full">
       <div className="flex items-center justify-center gap-3 mb-6">
         <BarChart3 size={24} className="text-gray-600" />
-        <h3 className="text-xl font-bold text-gray-800">הכנסות מול הוצאות</h3>
+        <h3 className="text-xl font-bold text-gray-800">הכנסות ביחס לחודשים</h3>
       </div>
       
       <div className="bg-gray-50 rounded-xl p-6 shadow-sm flex-1 mb-6">

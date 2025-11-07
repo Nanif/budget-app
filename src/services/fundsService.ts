@@ -43,10 +43,13 @@ export interface UpdateFundBudgetRequest {
 
 class FundsService {
   // GET /funds - קבלת כל הקופות (עם אפשרות לסינון לפי שנת תקציב)
-  async getAllFunds(budgetYearId?: string): Promise<GetFundRequest[]> {
-    const params = budgetYearId ? `?budgetYearId=${budgetYearId}` : '';
-    
-    const response = await apiClient.get<GetFundRequest[]>(`/funds${params}`);
+  async getAllFunds(budgetYearId?: string, month?: number): Promise<GetFundRequest[]> {
+    const search = new URLSearchParams();
+    if (budgetYearId) search.append('budgetYearId', budgetYearId);
+    if (month) search.append('month', String(month));
+
+    const query = search.toString() ? `?${search.toString()}` : '';
+    const response = await apiClient.get<GetFundRequest[]>(`/funds${query}`);
     return response.data;
   }
 

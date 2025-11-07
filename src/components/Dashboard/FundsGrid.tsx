@@ -1,8 +1,10 @@
-import React, { useState } from 'react';
+﻿import React, { useEffect, useState } from 'react';
 import { GetFundRequest } from '../../services/fundsService';
-import { PlusCircle, Calendar, Wallet, TrendingUp, Gift, Coins, DollarSign, Target, Check, X } from 'lucide-react';
+import { Wallet, TrendingUp, Gift, Coins, DollarSign, Target, Calendar, PlusCircle, Check, X } from 'lucide-react';
 import ColorBadge from '../UI/ColorBadge';
 import FundTransactionsModal from './FundTransactionsModal';
+import { cashEnvelopeTransactionsService, CashEnvelopeTransaction } from '../../services/cashEnvelopeTransactionsService';
+import { useBudgetYearStore } from '../../store/budgetYearStore';
 
 interface FundsGridProps {
   funds: GetFundRequest[];
@@ -20,13 +22,51 @@ interface FundTransaction {
   date: string;
 }
 
-const FundsGrid: React.FC<FundsGridProps> = ({ funds, currentDisplayMonth, onCloseDailyFund, onAddMoneyToEnvelope }) => {
+const FundsGrid: React.FC<FundsGridProps> = ({ funds, currentDisplayMonth, onCloseDailyFund, onAddMoneyToEnvelope, onMonthChange }) => {
   const [showEnvelopeInput, setShowEnvelopeInput] = useState(false);
   const [envelopeAmount, setEnvelopeAmount] = useState('');
   const [showClosureInput, setShowClosureInput] = useState(false);
   const [remainingAmount, setRemainingAmount] = useState('');
   const [showTransactionsModal, setShowTransactionsModal] = useState(false);
   const [selectedFund, setSelectedFund] = useState<GetFundRequest | null>(null);
+  const [transactions, setTransactions] = useState<FundTransaction[]>([]);
+  const selectedBudgetYearId = useBudgetYearStore(state => state.selectedBudgetYearId);
+  const [cashTotalsByFund, setCashTotalsByFund] = useState<Record<string, number>>({});
+  const [enableCreateForm, setEnableCreateForm] = useState(false);
+
+  const [amountInputs, setAmountInputs] = useState<Record<string, string>>({});
+  const [descInputs, setDescInputs] = useState<Record<string, string>>({});
+  const refreshCashTotals = async () => {
+    try {
+      const list = await cashEnvelopeTransactionsService.list({
+        month: currentDisplayMonth || getCurrentMonth(),
+        budgetYearId: selectedBudgetYearId || undefined,
+      });
+      const totals: Record<string, number> = {};
+      for (const t of list) {
+        const amt = Number(t.amount || 0);
+        totals[t.fund_id] = (totals[t.fund_id] || 0) + amt;
+      }
+      setCashTotalsByFund(totals);
+    } catch (e) {
+      console.error('Failed to load cash totals:', e);
+      setCashTotalsByFund({});
+    }
+  };
+
+  useEffect(() => {
+    // Only relevant for cash-managed (level 1) funds
+    refreshCashTotals();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedBudgetYearId, currentDisplayMonth]);
+
+  // When month changes and modal is open, reload transactions for the selected fund
+  useEffect(() => {
+    if (showTransactionsModal && selectedFund) {
+      loadTransactionsForFund(selectedFund);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentDisplayMonth]);
 
   const level1Funds = funds.filter(fund => fund.level === 1);
   const level2Funds = funds.filter(fund => fund.level === 2);
@@ -50,38 +90,13 @@ const FundsGrid: React.FC<FundsGridProps> = ({ funds, currentDisplayMonth, onClo
     return currentDate.getMonth() + 1;
   };
 
-  const getFundIcon = (fundName: string) => {
-    if (fundName.includes('שוטף')) return <Wallet size={20} className="text-emerald-600" />;
-    if (fundName.includes('שנתי')) return <Target size={18} className="text-indigo-600" />;
-    if (fundName.includes('מורחב')) return <Target size={18} className="text-indigo-600" />;
-    if (fundName.includes('בונוס')) return <Gift size={18} className="text-orange-600" />;
-    if (fundName.includes('עודפים')) return <Coins size={18} className="text-yellow-600" />;
-    return <DollarSign size={18} className="text-gray-600" />;
-  };
-
+  
   const handleEnvelopeSubmit = () => {
     if (envelopeAmount && Number(envelopeAmount) > 0) {
       const amount = Number(envelopeAmount);
-      
-      // עדכון מקומי של הקופה
-      const updatedFunds = funds.map(fund => {
-        if (fund.level === 1) { // קופת שוטף
-          return {
-            ...fund,
-            amount_given: (fund.amount_given || 0) + amount
-          };
-        }
-        return fund;
-      });
-      
-      // קריאה לפונקציה מהרכיב האב
-      onAddMoneyToEnvelope(amount);
-      
+      // onAddMoneyToEnvelope(amount);
       setEnvelopeAmount('');
       setShowEnvelopeInput(false);
-      
-      // הודעת הצלחה
-      console.log(`✅ נוסף ${amount} ש"ח למעטפה`);
     }
   };
 
@@ -92,7 +107,7 @@ const FundsGrid: React.FC<FundsGridProps> = ({ funds, currentDisplayMonth, onClo
 
   const handleClosureSubmit = () => {
     if (remainingAmount && Number(remainingAmount) >= 0) {
-      onCloseDailyFund(Number(remainingAmount));
+  //    onCloseDailyFund(Number(remainingAmount));
       setRemainingAmount('');
       setShowClosureInput(false);
     }
@@ -119,12 +134,97 @@ const FundsGrid: React.FC<FundsGridProps> = ({ funds, currentDisplayMonth, onClo
     }
   };
 
-  const handleShowTransactions = (fund: GetFundRequest) => {
+
+  const loadTransactionsForFund = async (fund: GetFundRequest) => {
+    let tx: FundTransaction[] = [];
+    try {
+      if (fund.level === 1) {
+        const serverTx: CashEnvelopeTransaction[] = await cashEnvelopeTransactionsService.list({
+          month: currentDisplayMonth || getCurrentMonth(),
+          budgetYearId: selectedBudgetYearId || undefined,
+        });
+        tx = (serverTx || [])
+          .filter(t => t.fund_id === fund.id)
+          .map(t => ({
+          id: t.id,
+          amount: t.amount,
+          type: t.amount >= 0 ? 'returned' : 'given',
+          description: t.description || (t.amount >= 0 ? 'הפקדה' : 'משיכה'),
+          date: t.date,
+        }));
+      } else {
+        tx = getMockTransactions(fund.id);
+      }
+    } catch (e) {
+      console.error('Failed to load cash envelope transactions:', e);
+      tx = getMockTransactions(fund.id);
+    }
+    setTransactions(tx);
+  };
+
+  const handleShowTransactions = async (fund: GetFundRequest) => {
     setSelectedFund(fund);
+    setEnableCreateForm(false);
+    await loadTransactionsForFund(fund);
     setShowTransactionsModal(true);
   };
 
+  const handleAddTransactionClick = async (fund: GetFundRequest) => {
+    setSelectedFund(fund);
+    setEnableCreateForm(true);
+    await loadTransactionsForFund(fund);
+    setShowTransactionsModal(true);
+  };
+
+  const handleCreateTransaction = async (input: { amount: number; date: string; description?: string; type: 'deposit' | 'withdrawal'; month?: number }) => {
+    if (!selectedFund) return;
+    try {
+      const signedAmount = input.type === 'withdrawal' ? -Math.abs(input.amount) : Math.abs(input.amount);
+      await cashEnvelopeTransactionsService.create({
+        fund_id: selectedFund.id,
+        date: input.date,
+        amount: signedAmount,
+        description: input.description,
+        budget_year_id: selectedBudgetYearId || undefined,
+        month: input.month ?? (currentDisplayMonth || getCurrentMonth()),
+      });
+      await loadTransactionsForFund(selectedFund);
+      await refreshCashTotals();
+    } catch (e) {
+      console.error('Failed to create cash transaction:', e);
+    }
+  };
+
   // Mock data for transactions - בעתיד יבוא מה-API
+  
+  const handleInlineSubmit = async (fund: GetFundRequest) => {
+    const amountStr = amountInputs[fund.id] || '';
+    const descStr = (descInputs[fund.id] || '').trim();
+    if (amountStr === '') return;
+    const num = Number(amountStr);
+    if (isNaN(num) || num === 0) return;
+    const type = num > 0 ? 'deposit' as const : 'withdrawal' as const;
+    const year = new Date().getFullYear();
+    const monthStr = String(currentDisplayMonth || getCurrentMonth()).padStart(2, '0');
+    const date = `${year}-${monthStr}-01`;
+    await handleCreateTransaction({
+      amount: Math.abs(num),
+      description: descStr || undefined,
+      type,
+      date,
+      month: currentDisplayMonth || getCurrentMonth(),
+    });
+    setAmountInputs(prev => ({ ...prev, [fund.id]: '' }));
+    setDescInputs(prev => ({ ...prev, [fund.id]: '' }));
+  };
+
+  const handleInlineKey = (e: React.KeyboardEvent<HTMLInputElement>, fund: GetFundRequest) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      handleInlineSubmit(fund);
+    }
+  };
+
   const getMockTransactions = (fundId: string): FundTransaction[] => {
     return [
       { id: '1', amount: 200, type: 'given', description: 'נתינה למעטפה', date: '2024-01-15' },
@@ -143,7 +243,7 @@ const FundsGrid: React.FC<FundsGridProps> = ({ funds, currentDisplayMonth, onClo
   return (
     <>
       <div className="space-y-6">
-      {/* שורה ראשונה - קופת שוטף */}
+      {/* שורה ראשונה - קופת השוטף */}
       {level1Funds.map(fund => (
         <div key={fund.id} className="relative bg-gradient-to-br from-emerald-50 via-green-50 to-emerald-100 rounded-xl shadow-lg p-6 border-2 border-emerald-300 hover:shadow-xl transition-all duration-300 overflow-hidden">
           {/* חצי עיגול עדין בפינה הימנית העליונה */}
@@ -153,89 +253,52 @@ const FundsGrid: React.FC<FundsGridProps> = ({ funds, currentDisplayMonth, onClo
           
           <div className="flex justify-between items-start mb-6 relative z-10">
             <div className="flex items-center gap-3">
-              {getFundIcon(fund.name)}
+              {/* {getFundIcon(fund.name)} */}
               <div>
                 <h3 className="text-lg font-bold text-emerald-800">{fund.name}</h3>
-                <p className="text-sm text-emerald-600 font-medium">
-                  חודש {getMonthName(currentDisplayMonth)} {String(currentDisplayMonth).padStart(2, '0')}
-                </p>
+                <div className="text-sm text-emerald-600 font-medium flex items-center gap-2">
+                  <span>חודש</span>
+                  <select
+                    value={currentDisplayMonth}
+                    onChange={(e) => onMonthChange(Number(e.target.value))}
+                    className="border border-emerald-300 rounded px-1 py-0.5 text-sm bg-white focus:outline-none focus:ring-1 focus:ring-emerald-400"
+                  >
+                    {Array.from({ length: 12 }, (_, i) => i + 1).map((m) => (
+                      <option key={m} value={m}>{String(m).padStart(2, '0')}</option>
+                    ))}
+                  </select>
+                </div>
               </div>
             </div>
-            <div className="flex gap-3">
-              {!showEnvelopeInput && !showClosureInput ? (
-                <>
-                  <button
-                    onClick={() => setShowEnvelopeInput(true)}
-                    className="bg-gray-500 text-white px-4 py-2 rounded-lg text-sm hover:bg-gray-600 transition-colors flex items-center gap-2 shadow-md"
-                  >
-                    <PlusCircle size={16} />
-                    הוספה למעטפה
-                  </button>
-                  <button
-                    onClick={() => setShowClosureInput(true)}
-                    className="bg-gray-600 text-white px-4 py-2 rounded-lg text-sm hover:bg-gray-700 transition-colors flex items-center gap-2 shadow-md"
-                  >
-                    <Calendar size={16} />
-                    סגירת חודש
-                  </button>
-                </>
-              ) : showEnvelopeInput ? (
-                <div className="flex items-center gap-2 bg-white rounded-lg p-2 shadow-md border-2 border-emerald-300">
-                  <input
-                    type="number"
-                    value={envelopeAmount}
-                    onChange={(e) => setEnvelopeAmount(e.target.value)}
-                    onKeyDown={(e) => handleKeyPress(e, 'envelope')}
-                    placeholder="סכום"
-                    className="w-24 p-1 border border-emerald-200 rounded text-sm focus:border-emerald-400 focus:ring-1 focus:ring-emerald-200"
-                    autoFocus
-                  />
-                  <button
-                    onClick={handleEnvelopeSubmit}
-                    className="bg-emerald-500 text-white p-1 rounded hover:bg-emerald-600 transition-colors"
-                    title="אישור"
-                  >
-                    <Check size={14} />
-                  </button>
-                  <button
-                    onClick={handleEnvelopeCancel}
-                    className="bg-gray-400 text-white p-1 rounded hover:bg-gray-500 transition-colors"
-                    title="ביטול"
-                  >
-                    <X size={14} />
-                  </button>
-                </div>
-              ) : (
-                <div className="flex items-center gap-2 bg-white rounded-lg p-2 shadow-md border-2 border-orange-300">
-                  <span className="text-xs text-gray-600 whitespace-nowrap">נותר במעטפה:</span>
-                  <input
-                    type="number"
-                    value={remainingAmount}
-                    onChange={(e) => setRemainingAmount(e.target.value)}
-                    onKeyDown={(e) => handleKeyPress(e, 'closure')}
-                    placeholder="0"
-                    className="w-20 p-1 border border-orange-200 rounded text-sm focus:border-orange-400 focus:ring-1 focus:ring-orange-200"
-                    autoFocus
-                  />
-                  <button
-                    onClick={handleClosureSubmit}
-                    className="bg-orange-500 text-white p-1 rounded hover:bg-orange-600 transition-colors"
-                    title="סגירת חודש"
-                  >
-                    <Check size={14} />
-                  </button>
-                  <button
-                    onClick={handleClosureCancel}
-                    className="bg-gray-400 text-white p-1 rounded hover:bg-gray-500 transition-colors"
-                    title="ביטול"
-                  >
-                    <X size={14} />
-                  </button>
-                </div>
-              )}
             </div>
+
+          <div className="mt-4 flex items-center gap-2 relative z-10">
+            <input
+              type="number"
+              inputMode="decimal"
+              value={amountInputs[fund.id] || ''}
+              onChange={(e) => setAmountInputs(prev => ({ ...prev, [fund.id]: e.target.value }))}
+              onKeyDown={(e) => handleInlineKey(e, fund)}
+              className="w-28 p-2 border border-emerald-300 rounded-md text-sm focus:border-emerald-500 focus:ring-1 focus:ring-emerald-300"
+              placeholder="Amount (+/-)"
+            />
+            <input
+              type="text"
+              value={descInputs[fund.id] || ''}
+              onChange={(e) => setDescInputs(prev => ({ ...prev, [fund.id]: e.target.value }))}
+              onKeyDown={(e) => handleInlineKey(e, fund)}
+              className="flex-1 p-2 border border-emerald-300 rounded-md text-sm focus:border-emerald-500 focus:ring-1 focus:ring-emerald-300"
+              placeholder="Description (optional)"
+            />
+            <button
+              onClick={() => handleInlineSubmit(fund)}
+              className="bg-emerald-600 text-white p-2 rounded-md hover:bg-emerald-700 transition-colors"
+              title="הוסף טרנזקציה"
+            >
+              <PlusCircle size={18} />
+            </button>
           </div>
-          
+
           <div className="grid grid-cols-3 gap-6 relative z-10">
             <div className="text-center p-4 bg-white/80 rounded-lg border-2 border-emerald-200 shadow-sm">
               <div className="flex items-center justify-center gap-2 mb-2">
@@ -253,14 +316,14 @@ const FundsGrid: React.FC<FundsGridProps> = ({ funds, currentDisplayMonth, onClo
                 <TrendingUp size={16} className="text-green-600" />
                 <p className="text-sm text-green-700 font-bold">ניתן בפועל</p>
               </div>
-              <p className="text-lg font-bold text-green-600 text-center">{formatCurrency(fund.amount_given || 0)}</p>
+              <p className="text-lg font-bold text-green-600 text-center">{formatCurrency(fund.level === 1 ? (cashTotalsByFund[fund.id] || 0) : 0)}</p>
             </div>
             <div className="text-center p-4 bg-white/80 rounded-lg border-2 border-amber-200 shadow-sm">
               <div className="flex items-center justify-center gap-2 mb-2">
                 <Coins size={16} className="text-amber-600" />
                 <p className="text-sm text-amber-700 font-bold">נותר לתת</p>
               </div>
-              <p className="text-lg font-bold text-amber-600 text-center">{formatCurrency(fund.amount - (fund.amount_given || 0))}</p>
+              <p className="text-lg font-bold text-amber-600 text-center">{formatCurrency(fund.amount - (fund.level === 1 ? (cashTotalsByFund[fund.id] || 0) :  0))}</p>
             </div>
           </div>
         </div>
@@ -271,7 +334,7 @@ const FundsGrid: React.FC<FundsGridProps> = ({ funds, currentDisplayMonth, onClo
         {level2Funds.map(fund => (
           <div key={fund.id} className="bg-white rounded-xl shadow-lg p-6 border-2 border-gray-200 hover:shadow-xl hover:border-indigo-300 transition-all duration-300">
             <div className="flex items-center gap-3 mb-6 pb-3 border-b border-gray-100">
-              {getFundIcon(fund.name)}
+              {/* {getFundIcon(fund.name)} */}
               <div className="flex-1">
                 <h3 className="text-lg font-bold text-gray-800">{fund.name}</h3>
                 {fund.color_class && (
@@ -319,7 +382,7 @@ const FundsGrid: React.FC<FundsGridProps> = ({ funds, currentDisplayMonth, onClo
         {level3Funds.map(fund => (
           <div key={fund.id} className="bg-white rounded-xl shadow-lg p-6 border-2 border-gray-200 hover:shadow-xl hover:border-yellow-300 transition-all duration-300">
             <div className="flex items-center gap-3 mb-3">
-              {getFundIcon(fund.name)}
+              {/* {getFundIcon(fund.name)} */}
               <div className="flex-1">
                 <h3 className="text-lg font-bold text-gray-800">{fund.name}</h3>
                 {fund.color_class && (
@@ -338,15 +401,20 @@ const FundsGrid: React.FC<FundsGridProps> = ({ funds, currentDisplayMonth, onClo
       </div>
       </div>
 
-      {/* Modal תנועות */}
+      {/* Modal - Fund transactions */}
       <FundTransactionsModal
         isOpen={showTransactionsModal}
         onClose={() => setShowTransactionsModal(false)}
         fundName={selectedFund?.name || ''}
-        transactions={selectedFund ? getMockTransactions(selectedFund.id) : []}
+        transactions={transactions}
+        onCreate={selectedFund && selectedFund.level === 1 && enableCreateForm ? handleCreateTransaction : undefined}
+        selectedMonth={currentDisplayMonth}
       />
     </>
   );
 };
 
 export default FundsGrid;
+
+
+
