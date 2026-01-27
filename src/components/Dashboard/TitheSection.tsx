@@ -88,6 +88,8 @@ const TitheSection: React.FC<TitheSectionProps> = ({ totalIncome, tithePercentag
   const requiredTithe = (totalIncome * tithePercentage) / 100;
   const givenTithe = titheGiven.reduce((sum, tithe) => sum + tithe.amount, 0);
   const remainingTithe = requiredTithe - givenTithe;
+  const overTithe = givenTithe - requiredTithe;
+  const isOver = remainingTithe < 0;
 
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('he-IL', {
@@ -165,16 +167,15 @@ const TitheSection: React.FC<TitheSectionProps> = ({ totalIncome, tithePercentag
           </div>
         </div>
 
-        {/* חוב למעשרות */}
-        {/* חוב למעשרות - גרסה מוקטנת לגובה כולל 255px */}
-        <div className="mb-4 p-2 bg-gradient-to-r from-rose-50 to-pink-50 rounded-lg border border-rose-100">
-          <div className="flex items-center justify-between text-rose-700 text-xs font-medium">
+        {/* חוב למעשרות / נתרם יותר */}
+        <div className={`mb-4 p-2 rounded-lg border ${isOver ? 'bg-gradient-to-r from-emerald-50 to-teal-50 border-emerald-100' : 'bg-gradient-to-r from-rose-50 to-pink-50 border-rose-100'}`}>
+          <div className={`flex items-center justify-between text-xs font-medium ${isOver ? 'text-emerald-700' : 'text-rose-700'}`}>
             <div className="flex items-center gap-1">
-              <Heart size={12} className="text-rose-400" />
-              <span>חוב למעשרות</span>
+              <Heart size={12} className={isOver ? 'text-emerald-400' : 'text-rose-400'} />
+              <span>{isOver ? 'נתרם יותר' : 'חוב למעשרות'}</span>
             </div>
-            <span className={`font-bold text-sm ${remainingTithe > 0 ? 'text-rose-600' : 'text-emerald-600'}`}>
-              {formatCurrency(Math.max(0, remainingTithe))}
+            <span className={`font-bold text-sm ${isOver ? 'text-emerald-600' : 'text-rose-600'}`}>
+              {formatCurrency(isOver ? overTithe : Math.max(0, remainingTithe))} ש"ח
             </span>
           </div>
         </div>

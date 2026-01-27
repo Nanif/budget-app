@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { TitheGiven, CreateTitheRequest, UpdateTitheRequest, TitheSummary } from '../services/titheService';
 import { FilterState, SortState, PaginationState, InlineEditState } from '../components/Charity/types';
 import { titheService } from '../services/titheService';
+import { useBudgetYearStore } from '../store/budgetYearStore';
 
 const ITEMS_PER_PAGE = 15;
 
@@ -40,7 +41,9 @@ export const useTitheData = () => {
     originalValue: ''
   });
 
+  const selectedBudgetYearId = useBudgetYearStore(state => state.selectedBudgetYearId);
   const isLoadingMoreRef = useRef(false);
+  const lastLoadKeyRef = useRef<string | null>(null);
 
   // Load initial data
   const loadInitialData = useCallback(async () => {
@@ -49,7 +52,7 @@ export const useTitheData = () => {
       setError(null);
 
       const [summaryData] = await Promise.all([
-        titheService.getTitheSummary()
+        titheService.getTitheSummary(selectedBudgetYearId || undefined)
       ]);
 
       setSummary(summaryData);
@@ -63,7 +66,7 @@ export const useTitheData = () => {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [selectedBudgetYearId]);
 
   // Load tithes page
   const loadTithesPage = useCallback(async (page: number, reset: boolean = false) => {
@@ -82,6 +85,7 @@ export const useTitheData = () => {
 
     try {
       const titheFilters = {
+        budget_year_id: selectedBudgetYearId || undefined,
         startDate: filters.startDate || undefined,
         endDate: filters.endDate || undefined,
         search: filters.search || undefined,
@@ -130,7 +134,7 @@ export const useTitheData = () => {
         isLoadingMoreRef.current = false;
       }
     }
-  }, [filters, sort]);
+  }, [filters, sort, selectedBudgetYearId]);
 
   // Reset and reload data
   const resetAndLoadData = useCallback(async () => {
@@ -278,10 +282,19 @@ export const useTitheData = () => {
   }, [loadInitialData]);
 
   useEffect(() => {
-    if (dataLoaded) {
-      resetAndLoadData();
-    }
-  }, [filters, sort, dataLoaded, resetAndLoadData]);
+    if (!dataLoaded) return;
+
+    const loadKey = JSON.stringify({
+      selectedBudgetYearId: selectedBudgetYearId || null,
+      filters,
+      sort
+    });
+
+    if (lastLoadKeyRef.current === loadKey) return;
+    lastLoadKeyRef.current = loadKey;
+
+    resetAndLoadData();
+  }, [filters, sort, selectedBudgetYearId, dataLoaded, resetAndLoadData]);
 
   return {
     // State
