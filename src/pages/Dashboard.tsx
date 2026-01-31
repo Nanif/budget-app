@@ -1,5 +1,5 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import { Fund, Income, Expense, TitheGiven, Debt, Task, Category, BudgetYear, FundBudget, AssetSnapshot } from '../types';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { Fund, Income, Expense, TitheGiven, Debt, Task, Category, FundBudget, AssetSnapshot } from '../types';
 import TopActions from '../components/Dashboard/TopActions';
 
 import BudgetChart from '../components/Dashboard/BudgetChart';
@@ -14,19 +14,15 @@ import ExpenseModal from '../components/Modals/ExpenseModal';
 import { useNotifications } from '../components/Notifications/NotificationSystem';
 
 import {
-  getActiveBudgetYear,
-  getLatestBudgetYear,
   filterIncomesByBudgetYear,
   filterExpensesByBudgetYear,
   getAllIncomesForTithe,
-  calculateBudgetYearMonths,
-  getBudgetYearByDate
+  calculateBudgetYearMonths
 } from '../utils/budgetUtils';
 
 import { ENV } from '../config/env';
 
 // Import services instead of JSON data
-import { budgetYearsService } from '../services/budgetYearsService';
 import { CreateIncomeRequest, incomesService } from '../services/incomesService';
 import { CreateExpenseRequest, expensesService } from '../services/expensesService';
 import { titheService } from '../services/titheService';
@@ -38,11 +34,16 @@ import { fundsService, GetFundRequest } from '../services/fundsService';
 import { apiClient } from '../services/apiClient';
 import { systemSettingsService } from '../services';
 import { notesService } from '../services/notesService';
+import { useBudgetYearStore } from '../store/budgetYearStore';
 
 const Dashboard: React.FC = () => {
   // State management
-  const [budgetYears, setBudgetYears] = useState<BudgetYear[]>([]);
-  const [selectedBudgetYear, setSelectedBudgetYear] = useState<BudgetYear | null>(null);
+  const budgetYears = useBudgetYearStore(state => state.budgetYears);
+  const selectedBudgetYearId = useBudgetYearStore(state => state.selectedBudgetYearId);
+  const selectedBudgetYear = React.useMemo(
+    () => budgetYears.find(year => year.id === selectedBudgetYearId) || null,
+    [budgetYears, selectedBudgetYearId]
+  );
   const [funds, setFunds] = useState<GetFundRequest[]>([]);
   const [incomes, setIncomes] = useState<Income[]>([]);
   const [expenses, setExpenses] = useState<Expense[]>([]);
@@ -61,6 +62,7 @@ const Dashboard: React.FC = () => {
   const [expenseId, setExpenseId] = useState<string>("");
   const [tithePercentage, setTithePercentage] = useState<number>(0);
   const { addNotification } = useNotifications();
+  const lastBudgetYearIdRef = useRef<string | null>(null);
 
   // Setup API client notification callback - רק פעם אחת
   useEffect(() => {
@@ -77,7 +79,6 @@ const Dashboard: React.FC = () => {
       try {
         // טעינה מקבילה של כל הנתונים הבסיסיים
         const [
-          budgetYearsData,
           incomesData,
           expensesData,
           titheData,
@@ -87,10 +88,9 @@ const Dashboard: React.FC = () => {
           categoriesData,
           tithePercentageData
         ] = await Promise.all([
-          budgetYearsService.getAllBudgetYears(),
-          incomesService.getAllIncomes(),
-          expensesService.getAllExpenses(),
-          titheService.getAllTithes(),
+          incomesService.getAllIncomes({ budget_year_id: selectedBudgetYearId || undefined }),
+          expensesService.getAllExpenses({ budget_year_id: selectedBudgetYearId || undefined }),
+          titheService.getAllTithes({ budget_year_id: selectedBudgetYearId || undefined }),
           debtsService.getAllDebts(),
           tasksService.getAllTasks(),
           // systemSettingsService.getSettingByKey('tithe_percentage'),
@@ -99,7 +99,6 @@ const Dashboard: React.FC = () => {
         ]);
 
         // עדכון State בבת אחת
-        setBudgetYears(budgetYearsData);
         setIncomes(incomesData);
         setExpenses(expensesData);
         setTitheGiven(titheData);
@@ -113,13 +112,8 @@ const Dashboard: React.FC = () => {
         // טעינת פתקים מה-DB
         const notesData = await notesService.getAllNotes();
         setNotes(notesData);
+        lastBudgetYearIdRef.current = selectedBudgetYearId || null;
 
-        // הגדרת שנת תקציב ראשונית
-        const savedBudgetYearId = localStorage.getItem('selectedBudgetYearId');
-        let initialBudgetYear: BudgetYear | null = null;
-        initialBudgetYear = budgetYearsData.find(year => year.id === savedBudgetYearId) || null;
-        initialBudgetYear = initialBudgetYear || getActiveBudgetYear(budgetYearsData) || getLatestBudgetYear(budgetYearsData);
-        setSelectedBudgetYear(initialBudgetYear);
 
         setDataLoaded(true); // סימון שהנתונים נטענו
       } catch (err) {
@@ -132,6 +126,40 @@ const Dashboard: React.FC = () => {
 
     loadInitialData();
   }, [dataLoaded]); // תלות ב-dataLoaded למניעת קריאות כפולות
+
+  useEffect(() => {
+    if (!dataLoaded) return;
+
+    const normalizedBudgetYearId = selectedBudgetYearId || null;
+    if (lastBudgetYearIdRef.current === normalizedBudgetYearId) return;
+
+    let isMounted = true;
+
+    const loadBudgetYearData = async () => {
+      try {
+        const [incomesData, expensesData, titheData] = await Promise.all([
+          incomesService.getAllIncomes({ budget_year_id: selectedBudgetYearId || undefined }),
+          expensesService.getAllExpenses({ budget_year_id: selectedBudgetYearId || undefined }),
+          titheService.getAllTithes({ budget_year_id: selectedBudgetYearId || undefined })
+        ]);
+
+        if (isMounted) {
+          setIncomes(incomesData);
+          setExpenses(expensesData);
+          setTitheGiven(titheData);
+          lastBudgetYearIdRef.current = normalizedBudgetYearId;
+        }
+      } catch (err) {
+        console.error('Dashboard budget year data loading error:', err);
+      }
+    };
+
+    loadBudgetYearData();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [selectedBudgetYearId, dataLoaded]);
 
   // טען רק funds בכל החלפת שנת תקציב - עם מניעת קריאות כפולות
   useEffect(() => {
@@ -160,12 +188,6 @@ const Dashboard: React.FC = () => {
     };
   }, [selectedBudgetYear?.id, dataLoaded, currentDisplayMonth]);
 
-  // Save selected budget year to localStorage - עם מניעת עדכונים מיותרים
-  useEffect(() => {
-    if (selectedBudgetYear && dataLoaded) {
-      localStorage.setItem('selectedBudgetYearId', selectedBudgetYear.id);
-    }
-  }, [selectedBudgetYear?.id, dataLoaded]);
 
   // Calculate data based on selected budget year - מחושב רק כשצריך
   const currentBudgetYearIncomes = React.useMemo(() =>
@@ -202,10 +224,6 @@ const Dashboard: React.FC = () => {
     , [allIncomesForTithe]);
 
   // Handlers - עם useCallback למניעת re-renders מיותרים
-  const handleBudgetYearChange = useCallback((year: BudgetYear) => {
-    const selectedYear = budgetYears.find(y => y.id === year.id) || null;
-    setSelectedBudgetYear(selectedYear);
-  }, [budgetYears]);
 
   const handleAddExpense = useCallback(() => {
     setIsExpenseModalOpen(true);
@@ -534,9 +552,6 @@ const Dashboard: React.FC = () => {
         {/* כפתורי פעולה עליונים */}
         <div className="dashboard-section">
           <TopActions
-            selectedBudgetYear={selectedBudgetYear}
-            budgetYears={budgetYears}
-            onBudgetYearChange={handleBudgetYearChange}
             onAddExpense={handleAddExpense}
             onAddIncome={handleAddIncome}
           />

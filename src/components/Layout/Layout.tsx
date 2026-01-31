@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import Sidebar from './Sidebar';
 import Footer from './Footer';
+import Header from './Header';
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -22,6 +23,11 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
         onToggleCollapse={toggleSidebarCollapse}
       />
 
+      <div className={`transition-all duration-300 ${sidebarCollapsed ? 'mr-16' : 'mr-80'}`}>
+        <Header />
+      </div>
+
+
       {/* תוכן ראשי */}
       <main className={`flex-1 transition-all duration-300 ${sidebarCollapsed ? 'mr-16' : 'mr-80'}`}>
         {children}
@@ -36,3 +42,5 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
 };
 
 export default Layout;
+
+

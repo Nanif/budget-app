@@ -28,6 +28,7 @@ export interface UpdateTitheRequest {
 }
 
 export interface TitheFilters {
+  budget_year_id?: string;
   startDate?: string;
   endDate?: string;
   search?: string;
@@ -57,6 +58,7 @@ class TitheService {
   async getAllTithes(filters?: TitheFilters): Promise<TitheGiven[]> {
     const params = new URLSearchParams();
 
+    if (filters?.budget_year_id) params.append('budget_year_id', filters.budget_year_id);
     if (filters?.startDate) params.append('startDate', filters.startDate);
     if (filters?.endDate) params.append('endDate', filters.endDate);
     if (filters?.search) params.append('search', filters.search);
@@ -71,8 +73,9 @@ class TitheService {
   }
 
   // GET /tithe/summary - קבלת סיכום מעשרות
-  async getTitheSummary(): Promise<TitheSummary> {
-    const response = await apiClient.get<TitheSummary>('/tithe/summary');
+  async getTitheSummary(budgetYearId?: string): Promise<TitheSummary> {
+    const params = budgetYearId ? `?budget_year_id=${budgetYearId}` : '';
+    const response = await apiClient.get<TitheSummary>(`/tithe/summary${params}`);
     return response.data;
   }
 
